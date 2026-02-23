@@ -3,6 +3,8 @@
 set -euo pipefail
 set -x
 
+xcodegen generate
+
 if [ -z "${LIBRARY_NAME}" ]; then
     LIBRARY_NAME=DistributedABI
 fi

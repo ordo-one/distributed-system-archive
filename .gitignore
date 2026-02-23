@@ -1,4 +1,5 @@
 /.build
+/Sources/.build
 /*.xcodeproj
 /*.xcframework
 /*.xcframework.zip
