@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+if [ -z "${LIBRARY_NAME}" ]; then
+    LIBRARY_NAME=DistributedABI
+fi
+
+SCHEME_NAME=internal-distributed-system
+OUTPUT_NAME=${LIBRARY_NAME}-macos.xcframework
+
+rm -rf archives
+
+for platform in 'macOS' 'iOS' 'iOS Simulator'; do
+    xcodebuild archive \
+        -scheme ${LIBRARY_NAME}_${platform%% *} \
+        -destination "generic/platform=${platform}" \
+        -archivePath "archives/${platform// /_}.xcarchive"
+done
+
+rm -rf ${OUTPUT_NAME}
+
+xcodebuild -create-xcframework \
+    -archive archives/macOS.xcarchive -framework ${LIBRARY_NAME}.framework \
+    -archive archives/iOS.xcarchive -framework ${LIBRARY_NAME}.framework \
+    -archive archives/iOS_Simulator.xcarchive -framework ${LIBRARY_NAME}.framework \
+    -output ${OUTPUT_NAME}
+
+zip -r ${OUTPUT_NAME}.zip ${OUTPUT_NAME}

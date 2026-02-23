@@ -1,0 +1,18 @@
+name: DistributedABI
+options:
+    bundleIdPrefix: com.ordo-one
+    createSharedSchemes: true
+targets:
+  DistributedABI:
+        type: framework
+        platform: [macOS, iOS]
+        deploymentTarget:
+            macOS: "15.0"
+            iOS: "18.0"
+        sources:
+            - path: Sources/DistributedABI
+        settings:
+            base:
+                BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+                GENERATE_INFOPLIST_FILE: YES
+                SKIP_INSTALL: NO
