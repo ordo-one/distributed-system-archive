@@ -5,12 +5,9 @@ set -x
 
 xcodegen generate
 
-if [ -z "${LIBRARY_NAME}" ]; then
-    LIBRARY_NAME=DistributedABI
-fi
-
+LIBRARY_NAME=DistributedABI
 SCHEME_NAME=internal-distributed-system
-OUTPUT_NAME=${LIBRARY_NAME}-macos.xcframework
+OUTPUT_NAME=${LIBRARY_NAME}-macOS.xcframework
 
 rm -rf archives
 
@@ -21,14 +18,14 @@ for platform in 'macOS' 'iOS' 'iOS Simulator'; do
         -archivePath "archives/${platform// /_}.xcarchive"
 done
 
-rm -rf ${OUTPUT_NAME}
+rm -rf "${OUTPUT_NAME}"
 
 xcodebuild -create-xcframework \
     -archive archives/macOS.xcarchive -framework ${LIBRARY_NAME}.framework \
     -archive archives/iOS.xcarchive -framework ${LIBRARY_NAME}.framework \
     -archive archives/iOS_Simulator.xcarchive -framework ${LIBRARY_NAME}.framework \
-    -output ${OUTPUT_NAME}
+    -output "${OUTPUT_NAME}"
 
-zip -r ${OUTPUT_NAME}.zip ${OUTPUT_NAME}
+zip --symlinks -r "${OUTPUT_NAME}.zip" "${OUTPUT_NAME}"
 
-checksum=$(swift package compute-checksum DistributedABI-macos.xcframework.zip)
+checksum=$(swift package compute-checksum "${OUTPUT_NAME}.zip")

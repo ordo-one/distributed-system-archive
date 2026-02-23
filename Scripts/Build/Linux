@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+LIBRARY_NAME=DistributedABI
+OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
+
+swift build -c release \
+    --explicit-target-dependency-import-check=error \
+    --product ${LIBRARY_NAME}
+
+xcframework_dir="${OUTPUT_NAME}/linux-$(uname -m)"
+
+mkdir -p "${xcframework_dir}"
+
+for file in \
+    "Modules/${LIBRARY_NAME}.swiftinterface" \
+    "Modules/${LIBRARY_NAME}.swiftdoc" \
+    "lib${LIBRARY_NAME}.so"; do
+    cp -r .build/release/${file} "${xcframework_dir}/"
+done
+
+if [ ! -f "${xcframework_dir}/lib${LIBRARY_NAME}.so" ]; then
+    echo "Error: lib${LIBRARY_NAME}.so not found in build output"
+    exit 1
+fi
+
+chmod +x "${xcframework_dir}/lib${LIBRARY_NAME}.so"
+
+cat Scripts/Build/Linux.template.plist | sed "s/__LIBRARY__/${LIBRARY_NAME}/g" > "${OUTPUT_NAME}/Info.plist"
+zip -r "${OUTPUT_NAME}.zip" "${OUTPUT_NAME}"
+
+checksum=$(swift package compute-checksum "${OUTPUT_NAME}.zip")
