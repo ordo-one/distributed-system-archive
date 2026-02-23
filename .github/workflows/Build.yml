@@ -15,7 +15,7 @@ jobs:
             -   name: 🝮 Checkout 🝮
                 uses: actions/checkout@v3
 
-            -   name: 🝮 Swift Version 🝮
+            -   name: 🝮 Swift version 🝮
                 run: swift --version
 
             -   name: 🝮 Build XCF 🝮
@@ -28,8 +28,11 @@ jobs:
             -   name: 🝮 Checkout 🝮
                 uses: actions/checkout@v3
 
-            -   name: 🝮 Swift Version 🝮
+            -   name: 🝮 Swift version 🝮
                 run: swift --version
+
+            -   name: 🝮 Brew install xcodegen 🝮
+                run: brew install xcodegen
 
             -   name: 🝮 Build XCF 🝮
                 run: Scripts/Build/macOS
