@@ -30,3 +30,5 @@ xcodebuild -create-xcframework \
     -output ${OUTPUT_NAME}
 
 zip -r ${OUTPUT_NAME}.zip ${OUTPUT_NAME}
+
+checksum=$(swift package compute-checksum DistributedABI-macos.xcframework.zip)
