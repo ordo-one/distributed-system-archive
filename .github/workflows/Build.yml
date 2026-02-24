@@ -27,6 +27,15 @@ jobs:
             -   name: 🝮 Build XCF 🝮
                 run: Scripts/Build/Linux
 
+            -   name: 🝮 Upload XCF 🝮
+                uses: actions/upload-artifact@v6
+                with:
+                    name: xcframework-linux-${{ matrix.os[2] }}
+                    path: '*.xcframework.zip'
+                    compression-level: 0
+                    retention-days: 1
+                    overwrite: true
+
     macos:
         runs-on: [self-hosted, macos-26]
         name: macOS
@@ -51,3 +60,12 @@ jobs:
 
             -   name: 🝮 Build XCF 🝮
                 run: Scripts/Build/macOS
+
+            -   name: 🝮 Upload XCF 🝮
+                uses: actions/upload-artifact@v6
+                with:
+                    name: xcframework-macos
+                    path: '*.xcframework.zip'
+                    compression-level: 0
+                    retention-days: 1
+                    overwrite: true
