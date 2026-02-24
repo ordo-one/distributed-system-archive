@@ -29,10 +29,10 @@ jobs:
             -   name: 🝮 Swift version 🝮
                 run: swift --version
 
-            -   name: 🝮 Build XCF 🝮
+            -   name: 🝮 Build 🝮
                 run: Scripts/Build/macOS
 
-            -   name: 🝮 Upload XCF 🝮
+            -   name: 🝮 Upload 🝮
                 uses: actions/upload-artifact@v6
                 with:
                     name: xcframework-macos
@@ -57,10 +57,10 @@ jobs:
             -   name: 🝮 Swift version 🝮
                 run: swift --version
 
-            -   name: 🝮 Build XCF 🝮
+            -   name: 🝮 Build 🝮
                 run: Scripts/Build/Linux
 
-            -   name: 🝮 Upload XCF 🝮
+            -   name: 🝮 Upload 🝮
                 uses: actions/upload-artifact@v6
                 with:
                     name: xcframework-linux-${{ matrix.os[2] }}
@@ -95,7 +95,7 @@ jobs:
                         zip -r "${framework}.zip" "${framework}"
                     done
 
-            -   name: 🝮 Upload Merged XCF 🝮
+            -   name: 🝮 Upload 🝮
                 uses: actions/upload-artifact@v6
                 with:
                     name: xcframework-linux
@@ -122,11 +122,18 @@ jobs:
                     name: xcframework-linux
                     path: release-artifacts
 
-            -   name: 🝮 Create GitHub Release 🝮
+            -   name: 🝮 Create GitHub release 🝮
                 uses: softprops/action-gh-release@v2
                 with:
                     files: release-artifacts/*.zip
                     generate_release_notes: true
+
+            -   name: 🝮 Checkout downstream 🝮
+                uses: actions/checkout@v4
+                with:
+                    repository: 'ordo-one/internal-distributed-system-sdk'
+                    token: ${{ secrets.CI_MACHINE_PAT }}
+                    path: downstream
 
             -   name: 🝮 Generate Package.swift 🝮
                 run: |
@@ -137,7 +144,18 @@ jobs:
                     echo "macOS Checksum: ${CHECKSUM_MACOS}"
                     echo "Linux Checksum: ${CHECKSUM_LINUX}"
 
+                    cd downstream
+
                     sed -e "s/__TAG__/${TAG}/g" \
                         -e "s/__CHECKSUM_MACOS__/${CHECKSUM_MACOS}/g" \
                         -e "s/__CHECKSUM_LINUX__/${CHECKSUM_LINUX}/g" \
-                        Scripts/Package.template.swift > Scripts/Package.swift
+                        Package.template.swift > Package.swift
+
+                    git config user.name "github-actions[bot]"
+                    git config user.email "github-actions[bot]@users.noreply.github.com"
+
+                    git add Package.swift
+                    git commit -m "Release ${TAG}"
+                    git tag "${TAG}"
+                    git push origin main
+                    git push origin refs/tags/${TAG}
