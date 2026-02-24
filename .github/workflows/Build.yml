@@ -9,8 +9,14 @@ on:
 
 jobs:
     linux:
-        runs-on: [swift-stable, ubuntu-latest, X64, self-hosted]
-        name: Linux
+        strategy:
+            matrix:
+                os:
+                - [swift-stable, ubuntu-latest, X64, self-hosted]
+                - [swift-stable, ubuntu-latest, ARM64, self-hosted]
+
+        runs-on: ${{ matrix.os }}
+        name: Linux (${{ matrix.os[2] }})
         steps:
             -   name: 🝮 Checkout 🝮
                 uses: actions/checkout@v3
