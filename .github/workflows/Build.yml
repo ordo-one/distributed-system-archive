@@ -25,8 +25,17 @@ jobs:
         runs-on: [self-hosted, macos-26]
         name: macOS
         steps:
+            -   name: 🝮 Wipe gitconfig 🝮
+                run: echo "" > ~/.gitconfig
+
             -   name: 🝮 Checkout 🝮
-                uses: actions/checkout@v3
+                uses: actions/checkout@v4
+
+            -   name: 🝮 Git credential setup 🝮
+                uses: ./.github/actions/credentials-setup
+                with:
+                    token: ${{ secrets.CI_MACHINE_PAT }}
+                    ordo-auth-token: ${{ secrets.ORDO_AUTH_TOKEN }}
 
             -   name: 🝮 Swift version 🝮
                 run: swift --version
