@@ -27,5 +27,3 @@ xcodebuild -create-xcframework \
     -output "${OUTPUT_NAME}"
 
 zip --symlinks -r "${OUTPUT_NAME}.zip" "${OUTPUT_NAME}"
-
-checksum=$(swift package compute-checksum "${OUTPUT_NAME}.zip")

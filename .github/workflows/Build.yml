@@ -127,3 +127,17 @@ jobs:
                 with:
                     files: release-artifacts/*.zip
                     generate_release_notes: true
+
+            -   name: 🝮 Generate Package.swift 🝮
+                run: |
+                    TAG="${{ github.ref_name }}"
+                    CHECKSUM_MACOS=$(swift package compute-checksum release-artifacts/*-macOS.xcframework.zip)
+                    CHECKSUM_LINUX=$(swift package compute-checksum release-artifacts/*-Linux.xcframework.zip)
+
+                    echo "macOS Checksum: ${CHECKSUM_MACOS}"
+                    echo "Linux Checksum: ${CHECKSUM_LINUX}"
+
+                    sed -e "s/__TAG__/${TAG}/g" \
+                        -e "s/__CHECKSUM_MACOS__/${CHECKSUM_MACOS}/g" \
+                        -e "s/__CHECKSUM_LINUX__/${CHECKSUM_LINUX}/g" \
+                        Scripts/Package.template.swift > Scripts/Package.swift

@@ -30,5 +30,3 @@ chmod +x "${xcframework_dir}/lib${LIBRARY_NAME}.so"
 
 cat Scripts/Build/Linux.template.plist | sed "s/__LIBRARY__/${LIBRARY_NAME}/g" > "${OUTPUT_NAME}/Info.plist"
 zip -r "${OUTPUT_NAME}.zip" "${OUTPUT_NAME}"
-
-checksum=$(swift package compute-checksum "${OUTPUT_NAME}.zip")
