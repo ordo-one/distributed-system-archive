@@ -8,34 +8,6 @@ on:
         branches: [ main ]
 
 jobs:
-    linux:
-        strategy:
-            matrix:
-                os:
-                - [swift-stable, ubuntu-latest, X64, self-hosted]
-                - [swift-stable, ubuntu-latest, ARM64, self-hosted]
-
-        runs-on: ${{ matrix.os }}
-        name: Linux (${{ matrix.os[2] }})
-        steps:
-            -   name: 🝮 Checkout 🝮
-                uses: actions/checkout@v3
-
-            -   name: 🝮 Swift version 🝮
-                run: swift --version
-
-            -   name: 🝮 Build XCF 🝮
-                run: Scripts/Build/Linux
-
-            -   name: 🝮 Upload XCF 🝮
-                uses: actions/upload-artifact@v6
-                with:
-                    name: xcframework-linux-${{ matrix.os[2] }}
-                    path: '*.xcframework.zip'
-                    compression-level: 0
-                    retention-days: 1
-                    overwrite: true
-
     macos:
         runs-on: [self-hosted, macos-26]
         name: macOS
@@ -66,6 +38,69 @@ jobs:
                 with:
                     name: xcframework-macos
                     path: '*.xcframework.zip'
+                    compression-level: 0
+                    retention-days: 1
+                    overwrite: true
+
+    linux:
+        strategy:
+            matrix:
+                os:
+                - [swift-stable, ubuntu-latest, X64, self-hosted]
+                - [swift-stable, ubuntu-latest, ARM64, self-hosted]
+
+        runs-on: ${{ matrix.os }}
+        name: Linux (${{ matrix.os[2] }})
+        steps:
+            -   name: 🝮 Checkout 🝮
+                uses: actions/checkout@v3
+
+            -   name: 🝮 Swift version 🝮
+                run: swift --version
+
+            -   name: 🝮 Build XCF 🝮
+                run: Scripts/Build/Linux
+
+            -   name: 🝮 Upload XCF 🝮
+                uses: actions/upload-artifact@v6
+                with:
+                    name: xcframework-linux-${{ matrix.os[2] }}
+                    path: '*.xcframework.zip'
+                    # xcframeworks is already compressed, so don’t bother compressing it again
+                    compression-level: 0
+                    retention-days: 1
+                    overwrite: true
+
+    linux-merge:
+        runs-on: [swift-stable, ubuntu-latest, X64, self-hosted]
+        needs: [linux]
+        name: Linux XCF merge
+        steps:
+            -   name: 🝮 Download XCFs 🝮
+                uses: actions/download-artifact@v7
+                with:
+                    path: downloads
+                    pattern: xcframework-linux-*
+
+            # all plists are identical, so we can just take the first one for the merged XCF
+            -   name: 🝮 Merge XCFs 🝮
+                run: |
+                    mkdir -p constituents
+                    for file in downloads/*/*.zip; do
+                        unzip -o "$file" -d constituents/
+                    done
+
+                    cd constituents
+
+                    for framework in *.xcframework; do
+                        zip -r "${framework}.zip" "${framework}"
+                    done
+
+            -   name: 🝮 Upload Merged XCF 🝮
+                uses: actions/upload-artifact@v6
+                with:
+                    name: xcframework-linux
+                    path: constituents/*.xcframework.zip
                     compression-level: 0
                     retention-days: 1
                     overwrite: true
