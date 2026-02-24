@@ -125,13 +125,15 @@ jobs:
             -   name: 🝮 Create GitHub release 🝮
                 uses: softprops/action-gh-release@v2
                 with:
+                    repository: 'ordo-one/distributed-system-sdk'
+                    token: ${{ secrets.CI_MACHINE_PAT }}
                     files: release-artifacts/*.zip
                     generate_release_notes: true
 
             -   name: 🝮 Checkout downstream 🝮
                 uses: actions/checkout@v4
                 with:
-                    repository: 'ordo-one/internal-distributed-system-sdk'
+                    repository: 'ordo-one/distributed-system-sdk'
                     token: ${{ secrets.CI_MACHINE_PAT }}
                     path: downstream
 
