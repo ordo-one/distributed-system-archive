@@ -143,8 +143,8 @@ jobs:
                     CHECKSUM_LINUX=$(swift package compute-checksum release-artifacts/*-Linux.xcframework.zip)
 
                     ASSETS_JSON='${{ steps.create_release.outputs.assets }}'
-                    ASSET_URL_MACOS=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("macOS")) | .apiUrl')
-                    ASSET_URL_LINUX=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("Linux")) | .apiUrl')
+                    ASSET_URL_MACOS=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("macOS")) | .url')
+                    ASSET_URL_LINUX=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("Linux")) | .url')
 
                     echo "macOS Checksum: ${CHECKSUM_MACOS}"
                     echo "Linux Checksum: ${CHECKSUM_LINUX}"
