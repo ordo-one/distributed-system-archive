@@ -122,6 +122,13 @@ jobs:
                     name: xcframework-linux
                     path: release-artifacts
 
+            -   name: 🝮 Create GitHub release 🝮
+                uses: softprops/action-gh-release@v2
+                id: create_release
+                with:
+                    files: release-artifacts/*.zip
+                    generate_release_notes: true
+
             -   name: 🝮 Checkout downstream 🝮
                 uses: actions/checkout@v4
                 with:
@@ -135,14 +142,21 @@ jobs:
                     CHECKSUM_MACOS=$(swift package compute-checksum release-artifacts/*-macOS.xcframework.zip)
                     CHECKSUM_LINUX=$(swift package compute-checksum release-artifacts/*-Linux.xcframework.zip)
 
+                    ASSETS_JSON='${{ steps.create_release.outputs.assets }}'
+                    ASSET_URL_MACOS=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("macOS")) | .apiUrl')
+                    ASSET_URL_LINUX=$(echo "$ASSETS_JSON" | jq -r '.[] | select(.name | contains("Linux")) | .apiUrl')
+
                     echo "macOS Checksum: ${CHECKSUM_MACOS}"
                     echo "Linux Checksum: ${CHECKSUM_LINUX}"
+                    echo "macOS Asset URL: ${ASSET_URL_MACOS}"
+                    echo "Linux Asset URL: ${ASSET_URL_LINUX}"
 
                     cd downstream
 
-                    sed -e "s/__TAG__/${TAG}/g" \
-                        -e "s/__CHECKSUM_MACOS__/${CHECKSUM_MACOS}/g" \
+                    sed -e "s/__CHECKSUM_MACOS__/${CHECKSUM_MACOS}/g" \
                         -e "s/__CHECKSUM_LINUX__/${CHECKSUM_LINUX}/g" \
+                        -e "s|__ASSET_URL_MACOS__|${ASSET_URL_MACOS}|g" \
+                        -e "s|__ASSET_URL_LINUX__|${ASSET_URL_LINUX}|g" \
                         Package.template.swift > Package.swift
 
                     git config user.name "github-actions[bot]"
@@ -154,10 +168,3 @@ jobs:
                     git push origin main
                     git push origin refs/tags/${TAG}
 
-            -   name: 🝮 Create GitHub release 🝮
-                uses: softprops/action-gh-release@v2
-                with:
-                    repository: 'ordo-one/distributed-system-sdk'
-                    token: ${{ secrets.CI_MACHINE_PAT }}
-                    files: release-artifacts/*.zip
-                    generate_release_notes: true
