@@ -8,7 +8,8 @@
 
 fileprivate typealias SizeType = UInt32
 
-func nearestPowerOf2<T: FixedWidthInteger>(_ num: T) -> T {
+// TODO: should not be public
+@inlinable public func nearestPowerOf2<T: FixedWidthInteger>(_ num: T) -> T {
     return T(1) << (num.bitWidth - (num - T(1)).leadingZeroBitCount)
 }
 
