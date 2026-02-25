@@ -6,26 +6,28 @@
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 
+// TODO: this should not be here, and its members should not be public it is only here because
+// of poor Error enum separation
 public struct EndpointIdentifier: Hashable, Codable, CustomStringConvertible, Sendable {
     // keep the side flag in the lower bits for more efficient ULEB128 encoding
-    static let serviceFlag: UInt32 = 0x00000001
+    public static let serviceFlag: UInt32 = 0x00000001
 
-    typealias InstanceIdentifier = UInt32
+    public typealias InstanceIdentifier = UInt32
 
-    let channelID: UInt32 // 0 - local
-    let instanceID: InstanceIdentifier
+    public let channelID: UInt32 // 0 - local
+    public let instanceID: UInt32
 
     public var description: String {
         let side = ((instanceID & Self.serviceFlag) == 0) ? "C" : "S"
         return "\(side):\(channelID):\(instanceID >> 1)"
     }
 
-    static func instanceIdentifierDescription(_ instanceID: InstanceIdentifier) -> String {
+    public static func instanceIdentifierDescription(_ instanceID: UInt32) -> String {
         let side = ((instanceID & Self.serviceFlag) == 0) ? "C" : "S"
         return "\(side):X:\(instanceID >> 1)"
     }
 
-    init(_ channelID: UInt32, _ instanceID: InstanceIdentifier) {
+    public init(_ channelID: UInt32, _ instanceID: UInt32) {
         self.channelID = channelID
         self.instanceID = instanceID
     }
@@ -35,12 +37,12 @@ public struct EndpointIdentifier: Hashable, Codable, CustomStringConvertible, Se
         return .init(channelID, instanceID ^ Self.serviceFlag)
     }
 
-    func makeServiceEndpoint() -> EndpointIdentifier {
+    public func makeServiceEndpoint() -> EndpointIdentifier {
         assert((instanceID & Self.serviceFlag) == 0)
         return .init(channelID, instanceID | Self.serviceFlag)
     }
 
-    static func makeServiceEndpoint(_ channelID: UInt32, _ instanceID: UInt32) -> EndpointIdentifier {
+    public static func makeServiceEndpoint(_ channelID: UInt32, _ instanceID: UInt32) -> EndpointIdentifier {
         return .init(channelID, instanceID | Self.serviceFlag)
     }
 }
