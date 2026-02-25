@@ -151,6 +151,10 @@ jobs:
                     echo "macOS Asset URL: ${ASSET_URL_MACOS}"
                     echo "Linux Asset URL: ${ASSET_URL_LINUX}"
 
+                    # canary to check that the files are accessible before pushing the commit
+                    curl -s --netrc -L -H "Accept: application/octet-stream" -o /dev/null "$ASSET_URL_MACOS"
+                    curl -s --netrc -L -H "Accept: application/octet-stream" -o /dev/null "$ASSET_URL_LINUX"
+
                     cd downstream
 
                     sed -e "s/__CHECKSUM_MACOS__/${CHECKSUM_MACOS}/g" \
