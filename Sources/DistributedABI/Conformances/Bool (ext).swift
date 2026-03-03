@@ -1,16 +1,11 @@
 extension Bool: Serializable {
     public func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result {
-        try Swift.withUnsafeBytes(of: self) {
-            try body(UnsafeRawBufferPointer($0))
-        }
+        try Swift.withUnsafeBytes(of: self, body)
     }
 }
 extension Bool: Deserializable {
     public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) {
-        guard buffer.count == MemoryLayout<Self>.size else {
-            throw BufferDecodingError<Self>.size(buffer.count, expected: MemoryLayout<Self>.size)
-        }
-        self = buffer.loadUnaligned(as: Self.self)
+        self = try .loadUnaligned(from: buffer)
     }
 
     public func _releaseBuffer() {}
