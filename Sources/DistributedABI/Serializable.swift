@@ -6,3 +6,13 @@ public protocol Serializable {
     /// - Parameter body: A closure with an `UnsafeMutableBufferPointer` parameter that points to memory where the object is serialized
     func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result
 }
+extension Serializable where Self: BinaryFloatingPoint & BitwiseCopyable {
+    public func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result {
+        try withUnsafeBytes(of: self, body)
+    }
+}
+extension Serializable where Self: BinaryInteger & BitwiseCopyable {
+    public func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result {
+        try Swift.withUnsafeBytes(of: self, body)
+    }
+}
