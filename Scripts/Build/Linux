@@ -3,7 +3,7 @@
 set -euo pipefail
 set -x
 
-LIBRARY_NAME=DistributedABI
+LIBRARY_NAME=OrdoDistributedABI
 OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
 
 swift build -c release \

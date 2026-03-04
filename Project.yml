@@ -1,9 +1,9 @@
-name: DistributedABI
+name: OrdoDistributedABI
 options:
     bundleIdPrefix: com.ordo-one
     createSharedSchemes: true
 targets:
-  DistributedABI:
+  OrdoDistributedABI:
         type: framework
         platform: [macOS, iOS]
         deploymentTarget:
