@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -euo pipefail
+set -x
+
+swift build \
+    --explicit-target-dependency-import-check=error \
+    --build-tests
+
+swift test --no-parallel

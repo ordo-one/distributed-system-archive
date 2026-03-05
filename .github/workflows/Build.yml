@@ -32,6 +32,9 @@ jobs:
             -   name: 🝮 Build 🝮
                 run: Scripts/Build/macOS
 
+            -   name: 🝮 Test 🝮
+                run: Scripts/TestAll
+
             -   name: 🝮 Upload 🝮
                 uses: actions/upload-artifact@v6
                 with:
@@ -59,6 +62,9 @@ jobs:
 
             -   name: 🝮 Build 🝮
                 run: Scripts/Build/Linux
+
+            -   name: 🝮 Test 🝮
+                run: Scripts/TestAll
 
             -   name: 🝮 Upload 🝮
                 uses: actions/upload-artifact@v6
