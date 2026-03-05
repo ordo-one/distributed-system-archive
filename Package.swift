@@ -22,6 +22,12 @@ let package: Package = .init(
                 .unsafeFlags(["-enable-library-evolution", "-emit-module-interface"]),
             ]
         ),
+        .testTarget(
+            name: "DistributedABITests",
+            dependencies: [
+                .target(name: "DistributedABI"),
+            ]
+        ),
     ]
 )
 package.targets = package.targets.map {
