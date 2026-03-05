@@ -3,7 +3,8 @@
 set -euo pipefail
 set -x
 
-LIBRARY_NAME=DistributedABI
+LIBRARY_NAME=OrdoDistributedABI
+MODULE_NAME=DistributedABI
 OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
 
 swift build -c release \
@@ -15,8 +16,8 @@ xcframework_dir="${OUTPUT_NAME}/linux-$(uname -m)"
 mkdir -p "${xcframework_dir}"
 
 for file in \
-    "Modules/${LIBRARY_NAME}.swiftinterface" \
-    "Modules/${LIBRARY_NAME}.swiftdoc" \
+    "Modules/${MODULE_NAME}.swiftinterface" \
+    "Modules/${MODULE_NAME}.swiftdoc" \
     "lib${LIBRARY_NAME}.so"; do
     cp -r .build/release/${file} "${xcframework_dir}/"
 done

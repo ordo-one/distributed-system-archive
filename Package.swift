@@ -10,7 +10,7 @@ let package: Package = .init(
     ],
     products: [
         .library(
-            name: "DistributedABI",
+            name: "OrdoDistributedABI",
             type: .dynamic,
             targets: ["DistributedABI"]
         ),
