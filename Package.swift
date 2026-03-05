@@ -15,6 +15,9 @@ let package: Package = .init(
             targets: ["DistributedABI"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/ordo-one/internal-ordo-format", from: "0.1.6"),
+    ],
     targets: [
         .target(
             name: "DistributedABI",
