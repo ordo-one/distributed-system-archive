@@ -3,6 +3,10 @@
 set -euo pipefail
 set -x
 
+# check formatting
+swift package --allow-writing-to-package-directory format
+git diff --exit-code
+
 swift build \
     --explicit-target-dependency-import-check=error \
     --build-tests
