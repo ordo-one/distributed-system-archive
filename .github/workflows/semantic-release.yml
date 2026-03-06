@@ -135,6 +135,13 @@ jobs:
         run: |
           gh release edit ${{ env.LATEST_RELEASE }} --latest
 
+      - name: Trigger release build
+        if: ${{ steps.semantic.outputs.version != '' }}
+        run: |
+          gh workflow run Build.yml --ref "${{ steps.semantic.outputs.version }}"
+        env:
+          GH_TOKEN: ${{ secrets.CI_MACHINE_PAT }}
+
       - name: Plugin build trigger
         if: >
           ${{ steps.semantic.outputs.version != '' && (
