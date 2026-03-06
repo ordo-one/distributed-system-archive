@@ -3,13 +3,12 @@
 set -euo pipefail
 set -x
 
-LIBRARY_NAME=OrdoDistributedABI
-MODULE_NAME=DistributedABI
-OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
+MODULE_NAME=OrdoDistributedABI
+OUTPUT_NAME=${MODULE_NAME}-Linux.xcframework
 
 swift build -c release \
     --explicit-target-dependency-import-check=error \
-    --product ${LIBRARY_NAME}
+    --product ${MODULE_NAME}
 
 xcframework_dir="${OUTPUT_NAME}/linux-$(uname -m)"
 
@@ -18,16 +17,16 @@ mkdir -p "${xcframework_dir}"
 for file in \
     "Modules/${MODULE_NAME}.swiftinterface" \
     "Modules/${MODULE_NAME}.swiftdoc" \
-    "lib${LIBRARY_NAME}.so"; do
+    "lib${MODULE_NAME}.so"; do
     cp -r .build/release/${file} "${xcframework_dir}/"
 done
 
-if [ ! -f "${xcframework_dir}/lib${LIBRARY_NAME}.so" ]; then
-    echo "Error: lib${LIBRARY_NAME}.so not found in build output"
+if [ ! -f "${xcframework_dir}/lib${MODULE_NAME}.so" ]; then
+    echo "Error: lib${MODULE_NAME}.so not found in build output"
     exit 1
 fi
 
-chmod +x "${xcframework_dir}/lib${LIBRARY_NAME}.so"
+chmod +x "${xcframework_dir}/lib${MODULE_NAME}.so"
 
-cat Scripts/Build/Linux.template.plist | sed "s/__LIBRARY__/${LIBRARY_NAME}/g" > "${OUTPUT_NAME}/Info.plist"
+cat Scripts/Build/Linux.template.plist | sed "s/__LIBRARY__/${MODULE_NAME}/g" > "${OUTPUT_NAME}/Info.plist"
 zip -r "${OUTPUT_NAME}.zip" "${OUTPUT_NAME}"
