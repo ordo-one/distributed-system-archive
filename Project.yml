@@ -10,7 +10,7 @@ targets:
             macOS: "15.0"
             iOS: "18.0"
         sources:
-            - path: Sources/OrdoDistributedABI
+            - path: Sources/DistributedABI
         settings:
             base:
                 BUILD_LIBRARY_FOR_DISTRIBUTION: YES
