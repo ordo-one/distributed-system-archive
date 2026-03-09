@@ -1,4 +1,4 @@
-import OrdoDistributedABI
+import DistributedABI
 import Testing
 
 @Suite struct Roundtripping {

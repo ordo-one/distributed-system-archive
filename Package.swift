@@ -12,7 +12,7 @@ let package: Package = .init(
         .library(
             name: "OrdoDistributedABI",
             type: .dynamic,
-            targets: ["OrdoDistributedABI"]
+            targets: ["DistributedABI"]
         ),
     ],
     dependencies: [
@@ -20,15 +20,15 @@ let package: Package = .init(
     ],
     targets: [
         .target(
-            name: "OrdoDistributedABI",
+            name: "DistributedABI",
             swiftSettings: [
                 .unsafeFlags(["-enable-library-evolution", "-emit-module-interface"]),
             ]
         ),
         .testTarget(
-            name: "OrdoDistributedABITests",
+            name: "DistributedABITests",
             dependencies: [
-                .target(name: "OrdoDistributedABI"),
+                .target(name: "DistributedABI"),
             ]
         ),
     ]

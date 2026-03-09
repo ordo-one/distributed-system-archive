@@ -5,8 +5,9 @@ set -x
 
 xcodegen generate
 
-MODULE_NAME=OrdoDistributedABI
-OUTPUT_NAME=${MODULE_NAME}-macOS.xcframework
+LIBRARY_NAME=OrdoDistributedABI
+MODULE_NAME=DistributedABI
+OUTPUT_NAME=${LIBRARY_NAME}-macOS.xcframework
 
 rm -rf archives
 
