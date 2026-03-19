@@ -1,20 +1,30 @@
+extension Optional {
+    private enum ABI {
+        static var none: UInt8 { 0 }
+        static var some: UInt8 { 1 }
+    }
+}
 extension Optional: Serializable where Wrapped: Serializable {
     public func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result {
-        switch self {
-        case .none:
-            return try withUnsafeTemporaryAllocation(byteCount: 1, alignment: 1) { buffer in
-                buffer[0] = 0
-                return try body(.init(buffer))
+        guard
+        let self: Wrapped = self else {
+            let none: UInt8 = ABI.none
+            return try withUnsafeBytes(of: none, body)
+        }
+        return try self.withUnsafeBytesSerialization { (buffer: UnsafeRawBufferPointer) in
+            let size: Int = buffer.count
+            if  size <= 0 {
+                let some: UInt8 = ABI.some
+                return try withUnsafeBytes(of: some, body)
             }
-        case .some(let wrapped):
-            return try wrapped.withUnsafeBytesSerialization { bytes in
-                try withUnsafeTemporaryAllocation(byteCount: 1 + bytes.count, alignment: 1) { buffer in
-                    buffer[0] = 1
-                    if bytes.count > 0 {
-                        buffer.baseAddress!.advanced(by: 1).copyMemory(from: bytes.baseAddress!, byteCount: bytes.count)
-                    }
-                    return try body(.init(buffer))
-                }
+            return try withUnsafeTemporaryAllocation(byteCount: size + 1, alignment: 1) {
+                let first: Int = $0.startIndex
+                let start: Int = $0.index(after: first)
+
+                $0[first] = ABI.some
+                let slice: UnsafeMutableRawBufferPointer = .init(rebasing: $0[start...])
+                ;   slice.copyMemory(from: buffer)
+                return try body(UnsafeRawBufferPointer.init($0))
             }
         }
     }
@@ -22,17 +32,23 @@ extension Optional: Serializable where Wrapped: Serializable {
 
 extension Optional: Deserializable where Wrapped: Deserializable {
     public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws {
-        if buffer.count == 0 {
+        guard let first: Int = buffer.indices.first else {
             throw BufferDecodingError<Self>.size(0)
         }
-        if buffer[0] == 0 {
-            if buffer.count != 1 {
+        let start: Int = buffer.index(after: first)
+        switch buffer[first] {
+        case ABI.none:
+            guard start == buffer.endIndex else {
                 throw BufferDecodingError<Self>.size(buffer.count, expected: 1)
             }
-            self = .none
-        } else {
-            let firstByte = buffer.baseAddress!.advanced(by: 1)
-            self = .some(try Wrapped(fromSerializedBuffer: UnsafeRawBufferPointer(start: firstByte, count: buffer.count - 1)))
+            self = nil
+
+        case ABI.some:
+            let slice: UnsafeRawBufferPointer = .init(rebasing: buffer[start...])
+            self = try Wrapped.init(fromSerializedBuffer: slice)
+
+        case let invalid:
+            throw OptionalDecodingError<Wrapped>.invalidDiscriminant(invalid)
         }
     }
 
