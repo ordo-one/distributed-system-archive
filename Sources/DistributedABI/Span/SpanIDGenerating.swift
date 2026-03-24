@@ -7,8 +7,7 @@ public protocol SpanIDGenerating: Sendable {
 public struct RandomSpanIDGenerator: SpanIDGenerating {
     public init() {}
 
-    @inlinable @inline(__always)
-    public func nextIdentifier() -> UInt64 { .random(in: 1 ... .max) }
+    @inlinable @inline(__always) public func nextIdentifier() -> UInt64 { .random(in: 1 ... .max) }
 }
 
 extension SpanContext {
