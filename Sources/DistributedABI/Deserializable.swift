@@ -10,7 +10,7 @@
 @available(*, deprecated) extension Deserializable {
     // forwards compatibility with new API
     public static func decode(from input: inout BufferDecoder) throws -> Self {
-        try input.bytes.withUnsafeBytes(self.init(fromSerializedBuffer:))
+        try input.bytes[input.index...].withUnsafeBytes(self.init(fromSerializedBuffer:))
     }
 }
 @available(*, deprecated) extension Deserializable where Self: BitwiseCopyable {
