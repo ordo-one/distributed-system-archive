@@ -35,4 +35,3 @@ extension BufferEncoder {
         self.bytes.append(contentsOf: bytes)
     }
 }
-
