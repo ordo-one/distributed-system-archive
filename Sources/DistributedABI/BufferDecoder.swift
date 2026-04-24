@@ -1,4 +1,4 @@
-/// A type for managing BSON parsing state. Most users of this library
+/// A type for managing buffer parsing state. Most users of this library
 /// should not need to interact with it directly.
 @frozen public struct BufferDecoder: ~Copyable, Sendable {
     @usableFromInline let bytes: ArraySlice<UInt8>
