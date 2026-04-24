@@ -51,6 +51,8 @@ import Testing
             "",
             "Hi Barbie!",
             "¡Hola Barbie!",
+            "¡Hola\0Barbie!",
+            String.init(repeating: "abcdefghijklmnopqrstuvwxyz", count: 100),
         ]
     ) static func RoundtripString(_ value: String) throws {
         try Self.roundtrip(value)
@@ -58,10 +60,17 @@ import Testing
     }
 }
 extension Roundtripping {
-    private static func reencode<T>(_ original: T) throws -> T where T: Serializable & Deserializable & Equatable {
-        try original.withUnsafeBytesSerialization(T.init(fromSerializedBuffer:))
+    private static func reencode<T>(
+        _ original: T
+    ) throws -> T where T: BufferEncodable & BufferDecodable & Equatable {
+        var encoder: BufferEncoder = .init(preallocated: [])
+        try original.encode(to: &encoder)
+        var decoder: BufferDecoder = .init(encoder.output)
+        return try T.decode(from: &decoder)
     }
-    private static func roundtrip<T>(_ original: T) throws where T: Serializable & Deserializable & Equatable {
+    private static func roundtrip<T>(
+        _ original: T
+    ) throws where T: BufferEncodable & BufferDecodable & Equatable {
         #expect(try self.reencode(original) == original)
     }
 }

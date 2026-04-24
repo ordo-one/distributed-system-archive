@@ -1,1 +1,2 @@
-extension Int32: TriviallyCopyable, Serializable, Deserializable, Transferable {}
+@available(*, deprecated) extension Int32: TriviallyCopyable, Transferable {}
+extension Int32: BufferEncodable, BufferDecodable {}
