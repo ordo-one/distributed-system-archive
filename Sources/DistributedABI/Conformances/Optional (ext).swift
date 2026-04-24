@@ -1,7 +1,7 @@
 extension Optional {
-    private enum ABI {
-        static var none: UInt8 { 0 }
-        static var some: UInt8 { 1 }
+    @usableFromInline enum ABI {
+        @inlinable static var none: UInt8 { 0 }
+        @inlinable static var some: UInt8 { 1 }
     }
 }
 extension Optional: Serializable where Wrapped: Serializable {
@@ -31,7 +31,7 @@ extension Optional: Serializable where Wrapped: Serializable {
 }
 
 extension Optional: Deserializable where Wrapped: Deserializable {
-    public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws {
+    @inlinable public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws {
         guard let first: Int = buffer.indices.first else {
             throw BufferDecodingError<Self>.size(0)
         }

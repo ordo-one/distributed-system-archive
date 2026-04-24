@@ -4,7 +4,7 @@ extension Bool: Serializable {
     }
 }
 extension Bool: Deserializable {
-    public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) {
+    @inlinable public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) {
         self = try .loadUnaligned(from: buffer)
     }
 
