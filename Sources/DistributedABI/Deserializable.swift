@@ -9,8 +9,15 @@
 }
 @available(*, deprecated) extension Deserializable {
     // forwards compatibility with new API
-    public static func decode(from input: inout BufferDecoder) throws -> Self {
-        try input.bytes[input.index...].withUnsafeBytes(self.init(fromSerializedBuffer:))
+    @available(
+        *, deprecated, message: """
+        modern deserialization API requires decoders to report the number of bytes consumed
+        """
+    ) public static func decode(
+        from input: inout BufferDecoder
+    ) throws -> Self {
+        defer { input.index = input.bytes.endIndex }
+        return try input.bytes[input.index...].withUnsafeBytes(self.init(fromSerializedBuffer:))
     }
 }
 @available(*, deprecated) extension Deserializable where Self: BitwiseCopyable {
