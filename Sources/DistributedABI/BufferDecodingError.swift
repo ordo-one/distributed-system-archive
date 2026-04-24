@@ -7,7 +7,7 @@ extension BufferDecodingError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .arbitrary(let error):
-            "buffer decoding error (\(error)))"
+            "buffer decoding error (\(error))"
         case .expected(.bytes(let expected), encountered: let actual):
             "invalid buffer size (\(actual) bytes), expected \(expected) bytes"
         case .expected(let what, encountered: _):
