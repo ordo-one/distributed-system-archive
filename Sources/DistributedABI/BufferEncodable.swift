@@ -9,7 +9,7 @@ extension BufferEncodable where Self: FixedWidthInteger & BitwiseCopyable {
         withUnsafeBytes(of: self.littleEndian) { output.append($0) }
     }
 }
-extension BufferDecodable where Self: RawRepresentable, RawValue: BufferEncodable {
+extension BufferEncodable where Self: RawRepresentable, RawValue: BufferEncodable {
     @inlinable public func encode(
         to output: inout BufferEncoder
     ) throws(RawValue.SerializationError) {
