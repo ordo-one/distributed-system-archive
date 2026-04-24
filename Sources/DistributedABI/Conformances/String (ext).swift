@@ -33,7 +33,7 @@ extension String {
     ) throws(BufferDecodingError) -> Self {
         let low: UInt32 = try .decode(from: &input)
         let high: UInt8 = try .decode(from: &input)
-        let size: Int = Int.init(high << 32) | Int.init(low)
+        let size: Int = Int.init(high) << 32 | Int.init(low)
         return try input.parse(size: size) { .init(decoding: $0, as: Unicode.UTF8.self) }
     }
 }
