@@ -8,22 +8,28 @@ public protocol Deserializable {
     func _releaseBuffer()
 }
 extension Deserializable where Self: BitwiseCopyable {
-    static func loadUnaligned(from buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) -> Self {
+    @inlinable static func loadUnaligned(
+        from buffer: UnsafeRawBufferPointer
+    ) throws(BufferDecodingError<Self>) -> Self {
         guard buffer.count == MemoryLayout<Self>.size else {
-            throw BufferDecodingError<Self>.size(buffer.count, expected: MemoryLayout<Self>.size)
+            throw .size(buffer.count, expected: MemoryLayout<Self>.size)
         }
         return buffer.loadUnaligned(as: Self.self)
     }
 }
 extension Deserializable where Self: BinaryFloatingPoint & BitwiseCopyable {
-    public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) {
+    @inlinable public init(
+        fromSerializedBuffer buffer: UnsafeRawBufferPointer
+    ) throws(BufferDecodingError<Self>) {
         self = try .loadUnaligned(from: buffer)
     }
 
     public func _releaseBuffer() {}
 }
 extension Deserializable where Self: BinaryInteger & BitwiseCopyable {
-    public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws(BufferDecodingError<Self>) {
+    @inlinable public init(
+        fromSerializedBuffer buffer: UnsafeRawBufferPointer
+    ) throws(BufferDecodingError<Self>) {
         self = try .loadUnaligned(from: buffer)
     }
 
