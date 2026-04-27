@@ -58,6 +58,82 @@ import Testing
         try Self.roundtrip(value)
         try Self.roundtrip(value as String?)
     }
+
+    @Test(
+        arguments: [
+            [],
+            [""],
+            ["", "a", "abc"],
+        ]
+    ) static func RoundtripArray(_ value: [String]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [String]?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [[]],
+            [[""]],
+            [[""], [""]],
+            [["", "a"], [], ["abc"]],
+        ]
+    ) static func RoundtripArrayNested(_ value: [[String]]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [[String]]?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [""],
+            ["", "a", "abc"],
+        ]
+    ) static func RoundtripSet(_ value: Set<String>) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as Set<String>?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [[]],
+            [[""]],
+            [[""], [""]],
+            [["", "a"], [], ["abc"]],
+        ]
+    ) static func RoundtripSetOfSets(_ value: Set<Set<String>>) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as Set<Set<String>>?)
+    }
+
+    @Test(
+        arguments: [
+            [:],
+            ["": ""],
+            ["": "a"],
+            ["a": ""],
+            ["": "a", "a": "b", "abc": "def"],
+        ]
+    ) static func RoundtripDictionary(_ value: [String: String]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [String: String]?)
+    }
+
+    @Test(
+        arguments: [
+            [:],
+            [[:]: [:]],
+            [["": ""]: ["": ""]],
+            [["a": "b"]: ["c": "d"]],
+            [["a": "b"]: ["c": "d"], ["x": "y"]: ["z": "w"]],
+        ]
+    ) static func RoundtripDictionaryOfDictionaries(
+        _ value: [[String: String]: [String: String]]
+    ) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [[String: String]: [String: String]]?)
+    }
 }
 extension Roundtripping {
     private static func reencode<T>(
@@ -66,7 +142,9 @@ extension Roundtripping {
         var encoder: BufferEncoder = .init(preallocated: [])
         try original.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
-        return try T.decode(from: &decoder)
+        let decoded: T = try .decode(from: &decoder)
+        try decoder.finish()
+        return decoded
     }
     private static func roundtrip<T>(
         _ original: T
