@@ -35,3 +35,23 @@ extension BufferDecodable where Self: RawRepresentable, RawValue: BufferDecodabl
         return value
     }
 }
+extension BufferDecodable where Self: RangeReplaceableCollection, Element: BufferDecodable {
+    @inlinable public static func decode(
+        from input: inout BufferDecoder
+    ) throws(BufferDecodingError) -> Self {
+        let header: CollectionHeader = try .decode(from: &input)
+        var values: Self = .init()
+        ;   values.reserveCapacity(header.count)
+        for _: Int in 0 ..< header.count {
+            do {
+                values.append(try .decode(from: &input))
+            } catch let error as BufferDecodingError {
+                throw error
+            } catch {
+                throw .arbitrary(error)
+            }
+        }
+
+        return values
+    }
+}

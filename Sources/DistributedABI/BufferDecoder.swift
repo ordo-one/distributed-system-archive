@@ -13,7 +13,7 @@
 }
 extension BufferDecoder {
     /// Consumes and returns a single byte from this parsing input.
-    @inlinable public mutating func next() -> UInt8? {
+    @inlinable mutating func next() -> UInt8? {
         guard self.index < self.bytes.endIndex else {
             return nil
         }
@@ -24,13 +24,14 @@ extension BufferDecoder {
         return self.bytes[self.index]
     }
     /// Consumes and returns a single byte from this parsing input.
-    @inlinable public mutating func parse() throws(BufferDecodingError) -> UInt8 {
+    @inlinable mutating func parse() throws(BufferDecodingError) -> UInt8 {
         guard let byte: UInt8 = self.next() else {
             throw self.expected(.bytes(1))
         }
         return byte
     }
-
+}
+extension BufferDecoder {
     @inlinable public mutating func parse<T>(
         size: Int,
         with yield: (ArraySlice<UInt8>) -> T
@@ -72,6 +73,14 @@ extension BufferDecoder {
             }
         }
         throw .expected(.byte(byte), encountered: 0)
+    }
+
+    /// Asserts that all available bytes have been consumed, throwing an error otherwise.
+    /// It is not necessary to call this, but it is often helpful to do so.
+    @inlinable public func finish() throws(BufferDecodingError) {
+        guard self.index == self.bytes.endIndex else {
+            throw self.expected(.end)
+        }
     }
 }
 extension BufferDecoder {

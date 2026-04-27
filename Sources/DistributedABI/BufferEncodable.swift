@@ -16,3 +16,14 @@ extension BufferEncodable where Self: RawRepresentable, RawValue: BufferEncodabl
         try self.rawValue.encode(to: &output)
     }
 }
+extension BufferEncodable where Self: Collection, Element: BufferEncodable {
+    @inlinable public func encode(
+        to output: inout BufferEncoder
+    ) throws(Element.SerializationError) {
+        self.header.encode(to: &output)
+
+        for element: Element in self {
+            try element.encode(to: &output)
+        }
+    }
+}
