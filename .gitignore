@@ -1,3 +1,6 @@
+/Benchmarks/.build
+/Benchmarks/Package.resolved
+
 /.build
 /*.xcodeproj
 /*.xcframework
