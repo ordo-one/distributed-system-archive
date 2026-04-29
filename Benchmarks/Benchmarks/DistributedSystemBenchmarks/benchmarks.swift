@@ -70,6 +70,11 @@ import DistributedABI
             }
         }
 
+        let size: Int = dictionaries.reduce(0) {
+            $0 + $1.withUnsafeBytesSerialization { $0.count }
+        }
+        print("total size: \(size)")
+
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
