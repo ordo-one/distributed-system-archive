@@ -3,12 +3,18 @@
 set -euo pipefail
 set -x
 
+spm_flags=()
+if [[ "$(uname)" != "Darwin" ]]; then
+    spm_flags+=(--experimental-xcframeworks-on-linux)
+fi
+
 # check formatting
-swift package --allow-writing-to-package-directory format
+swift package "${spm_flags[@]}" --allow-writing-to-package-directory format
 git diff --exit-code
 
 swift build \
     --explicit-target-dependency-import-check=error \
-    --build-tests
+    --build-tests \
+    "${spm_flags[@]}"
 
-swift test --no-parallel
+swift test --no-parallel "${spm_flags[@]}"
