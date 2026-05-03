@@ -16,7 +16,7 @@ jobs:
                 run: echo "" > ~/.gitconfig
 
             -   name: 🝮 Checkout 🝮
-                uses: actions/checkout@v4
+                uses: actions/checkout@v6
 
             -   name: 🝮 Git credential setup 🝮
                 uses: ./.github/actions/credentials-setup
@@ -53,7 +53,13 @@ jobs:
         name: Linux (${{ matrix.os[2] }})
         steps:
             -   name: 🝮 Checkout 🝮
-                uses: actions/checkout@v3
+                uses: actions/checkout@v6
+
+            -   name: 🝮 Git credential setup 🝮
+                uses: ./.github/actions/credentials-setup
+                with:
+                    token: ${{ secrets.CI_MACHINE_PAT }}
+                    ordo-auth-token: ${{ secrets.ORDO_AUTH_TOKEN }}
 
             -   name: 🝮 Swift version 🝮
                 run: swift --version
@@ -134,7 +140,7 @@ jobs:
                     generate_release_notes: true
 
             -   name: 🝮 Checkout downstream 🝮
-                uses: actions/checkout@v4
+                uses: actions/checkout@v6
                 with:
                     repository: 'ordo-one/distributed-system-sdk'
                     token: ${{ secrets.CI_MACHINE_PAT }}

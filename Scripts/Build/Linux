@@ -9,6 +9,7 @@ OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
 
 swift build -c release \
     --explicit-target-dependency-import-check=error \
+    --experimental-xcframeworks-on-linux \
     --product ${LIBRARY_NAME}
 
 xcframework_dir="${OUTPUT_NAME}/linux-$(uname -m)"
