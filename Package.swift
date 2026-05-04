@@ -5,8 +5,8 @@ import class Foundation.ProcessInfo
 let package: Package = .init(
     name: "internal-distributed-system",
     platforms: [
-        .macOS(.v15),
-        .iOS(.v18),
+        .macOS(.v26),
+        .iOS(.v26),
     ],
     products: [
         .library(
