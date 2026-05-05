@@ -12,7 +12,7 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.CI_MACHINE_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -28,29 +28,41 @@ jobs:
           tagFormat: '\${version}'
           plugins:
             - - '@semantic-release/commit-analyzer'
-              - releaseRules:
-                - breaking: true
-                  release: major
-                - type: build
-                  release: patch
-                - type: chore
-                  release: false
-                - type: feat
-                  release: false
-                - type: fix
-                  release: false
+              - preset: 'conventionalcommits'
+                parserOpts:
+                  mergePattern: '^Merge pull request #(\\d+) from (.*)$'
+                  mergeCorrespondence:
+                    - id
+                    - source
+                releaseRules:
+                  - breaking: true
+                    release: major
+                  - type: build
+                    release: patch
+                  - type: chore
+                    release: false
+                  - type: feat
+                    release: false
+                  - type: fix
+                    release: false
 
-                - scope: 'no-release'
-                  release: false
-                - scope: 'hotfix'
-                  release: patch
-                - scope: 'patch'
-                  release: patch
-                - scope: 'minor'
-                  release: minor
-                - scope: 'major'
-                  release: major
+                  - scope: 'no-release'
+                    release: false
+                  - scope: 'hotfix'
+                    release: patch
+                  - scope: 'patch'
+                    release: patch
+                  - scope: 'minor'
+                    release: minor
+                  - scope: 'major'
+                    release: major
             - - '@semantic-release/release-notes-generator'
+              - preset: 'conventionalcommits'
+                parserOpts:
+                  mergePattern: '^Merge pull request #(\\d+) from (.*)$'
+                  mergeCorrespondence:
+                    - id
+                    - source
             - - '@semantic-release/exec'
               -  successCmd: '{ echo release_type=\${nextRelease.type}; echo version=\${nextRelease.version}; } >> \$GITHUB_OUTPUT'
             - - '@semantic-release/github'
