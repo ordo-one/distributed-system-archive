@@ -533,13 +533,16 @@ func roundtripPayloads<T: BufferEncodable & BufferDecodable>(
     wire: inout [UInt8]
 ) throws where T.SerializationError == Never {
     for message in messages {
-        // Reuse the wire buffer's backing storage across messages: start it empty
-        // (keeping capacity, no realloc once warmed) and encode straight into it.
+        // Reuse the wire buffer's backing storage across messages with a genuine
+        // zero-copy hand-off: clear it (keeping capacity), move it into the encoder,
+        // drop our reference so the encoder's buffer is uniquely owned (no COW copy
+        // on the first append), encode in place, then reclaim it via `finalize()`
+        // with its grown capacity intact. Steady state does zero encoder reallocs.
         wire.removeAll(keepingCapacity: true)
-        var encoder: BufferEncoder = .init(preallocated: wire[...])
+        var encoder: BufferEncoder = .init(preallocated: wire)
+        wire = []
         try message.encode(to: &encoder)
-        // model the send copy: move the produced bytes back into the reused wire buffer.
-        wire = Array(encoder.output)
+        wire = encoder.finalize()
         // model the receive copy: a FRESH [UInt8] the decoder reads from (the
         // ByteBuffer -> Array copy production pays on receive).
         let received: [UInt8] = Array(wire)

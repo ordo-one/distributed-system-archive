@@ -15,17 +15,7 @@ extension Substring: BufferEncodable {
 
             // the `compact` format is only allowed for strings of up to
             // 256 UTF-8 code units containing no null bytes
-            var compact: Bool = utf8.count <= 256
-            if  compact {
-                var i: Int = 0
-                while i < utf8.count {
-                    if  utf8[i] == 0 {
-                        compact = false
-                        break
-                    }
-                    i += 1
-                }
-            }
+            let compact: Bool = utf8.count <= 256 && !utf8.contains(0)
 
             if  compact {
                 output.reserve(another: 2 + utf8.count)
@@ -36,12 +26,14 @@ extension Substring: BufferEncodable {
                 output.append(utf8)
                 output.append(0x00)
             } else {
-                // 1 TB ought to be enough for anyone
-                let size: Int = utf8.count
+                // 1 TB ought to be enough for anyone. Compute the 40-bit length
+                // through `UInt64` so the `>> 32` is well-defined on 32-bit
+                // platforms too (the bytes emitted are identical on 64-bit).
+                let size: UInt64 = .init(utf8.count)
                 let high: UInt8 = .init(size >> 32)
-                let low: UInt32 = .init(size & 0xffff_ffff)
+                let low: UInt32 = .init(truncatingIfNeeded: size)
 
-                output.reserve(another: 6 + size)
+                output.reserve(another: 6 + utf8.count)
                 String.BinaryFormat.long.encode(to: &output)
                 // the alignment is going to suck either way we do it, so we
                 // might as well make it look aesthetically like the little
@@ -83,12 +75,14 @@ extension Substring {
             output.append(self.utf8)
             output.append(0x00)
         } else {
-            // 1 TB ought to be enough for anyone
-            let size: Int = self.utf8.count
+            // 1 TB ought to be enough for anyone. Compute the 40-bit length
+            // through `UInt64` so the `>> 32` is well-defined on 32-bit
+            // platforms too (the bytes emitted are identical on 64-bit).
+            let size: UInt64 = .init(self.utf8.count)
             let high: UInt8 = .init(size >> 32)
-            let low: UInt32 = .init(size & 0xffff_ffff)
+            let low: UInt32 = .init(truncatingIfNeeded: size)
 
-            output.reserve(another: 6 + size)
+            output.reserve(another: 6 + self.utf8.count)
             format.encode(to: &output)
             // the alignment is going to suck either way we do it, so we might as
             // well make it look aesthetically like the little endian Int40 it
