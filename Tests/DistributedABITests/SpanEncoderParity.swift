@@ -21,7 +21,7 @@ import Testing
         s.appendLittleEndian(UInt32(0xAABB_CCDD))
         s.appendLittleEndian(Int64(-1))
         s.appendLittleEndian(UInt16(0x1234))
-        s.append(0x42)
+        s.append(UInt8(0x42))
         let span: [UInt8] = [UInt8](UnsafeRawBufferPointer(rebasing: reserved[0 ..< s.finalize()]))
 
         var encoder: BufferEncoder = .init(capacity: 64)
@@ -42,9 +42,9 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(0) // .compact
+        s.append(UInt8(0)) // .compact
         utf8.withUnsafeBytes { (p: UnsafeRawBufferPointer) in s.append(copying: p) }
-        s.append(0x00)
+        s.append(UInt8(0x00))
         let span: [UInt8] = [UInt8](UnsafeRawBufferPointer(rebasing: reserved[0 ..< s.finalize()]))
 
         var encoder: BufferEncoder = .init(capacity: 64)
@@ -61,7 +61,7 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(2) // .none
+        s.append(UInt8(2)) // .none
         let span: [UInt8] = [UInt8](UnsafeRawBufferPointer(rebasing: reserved[0 ..< s.finalize()]))
 
         var encoder: BufferEncoder = .init(capacity: 8)
@@ -80,7 +80,7 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(1) // .long
+        s.append(UInt8(1)) // .long
         s.appendLittleEndian(UInt32(truncatingIfNeeded: size))
         s.append(UInt8(size >> 32))
         utf8.withUnsafeBytes { (p: UnsafeRawBufferPointer) in s.append(copying: p) }
@@ -103,9 +103,9 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(0) // .compact
+        s.append(UInt8(0)) // .compact
         utf8.withUnsafeBytes { (p: UnsafeRawBufferPointer) in s.append(copying: p) }
-        s.append(0x00)
+        s.append(UInt8(0x00))
         let span: [UInt8] = [UInt8](UnsafeRawBufferPointer(rebasing: reserved[0 ..< s.finalize()]))
 
         var encoder: BufferEncoder = .init(capacity: 512)
@@ -126,7 +126,7 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(1) // .long
+        s.append(UInt8(1)) // .long
         s.appendLittleEndian(UInt32(truncatingIfNeeded: size))
         s.append(UInt8(size >> 32))
         utf8.withUnsafeBytes { (p: UnsafeRawBufferPointer) in s.append(copying: p) }
@@ -151,7 +151,7 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(1) // .long (compact disallowed by the embedded NUL)
+        s.append(UInt8(1)) // .long (compact disallowed by the embedded NUL)
         s.appendLittleEndian(UInt32(truncatingIfNeeded: size))
         s.append(UInt8(size >> 32))
         utf8.withUnsafeBytes { (p: UnsafeRawBufferPointer) in s.append(copying: p) }
@@ -171,9 +171,9 @@ import Testing
         defer { reserved.deallocate() }
         let raw: OutputRawSpan = .init(buffer: reserved, initializedCount: 0)
         var s: SpanEncoder = .init(raw)
-        s.append(1) // some
+        s.append(UInt8(1)) // some
         s.appendLittleEndian(UInt64(7))
-        s.append(0) // none
+        s.append(UInt8(0)) // none
         let span: [UInt8] = [UInt8](UnsafeRawBufferPointer(rebasing: reserved[0 ..< s.finalize()]))
 
         var encoder: BufferEncoder = .init(capacity: 32)

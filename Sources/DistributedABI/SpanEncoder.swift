@@ -49,6 +49,19 @@
 /// message.encode(to: &encoder)
 /// let written = encoder.finalize()        // byte count written
 /// ```
+///
+/// ## Composable generic encode
+///
+/// `SpanEncoder` deliberately exposes only CONCRETE, overloaded leaf write
+/// methods (`append(_: Bool)`, `append(_: Double)`, `append(_: String)`,
+/// `append(collectionHeader:)`, `appendLittleEndian`, …). There is NO
+/// `SpanEncodable` protocol — that omission is intentional. Encoding a generic
+/// aggregate such as `Array<T>` or `Dictionary<K, V>` therefore requires the
+/// caller (or codegen) to write the `CollectionHeader` via
+/// ``append(collectionHeader:)`` and then loop, calling the correct leaf method
+/// per element; the library does not dispatch that generically. A composable
+/// `encode(to:)`-style protocol would require introducing a `SpanEncodable`
+/// witness, which is explicitly out of scope here.
 @frozen public struct SpanEncoder: ~Copyable, ~Escapable {
     @usableFromInline var raw: OutputRawSpan
 
@@ -117,6 +130,122 @@ extension SpanEncoder {
             dest.baseAddress!.advanced(by: initializedCount)
                 .copyMemory(from: base, byteCount: n)
             initializedCount += n
+        }
+    }
+}
+extension SpanEncoder {
+    //  Concrete wire-format write methods — the encode-side mirror of the
+    //  `BufferEncodable` conformances in `Conformances/`. Each writes the SAME
+    //  bytes its `encode(to: inout BufferEncoder)` counterpart produces, so a
+    //  message written through these decodes byte-for-byte identically through
+    //  `BufferDecoder` / `SpanDecoder`. They are CONCRETE overloads, NOT a
+    //  protocol (see the type doc comment): a generic `Array`/`Dictionary` still
+    //  needs the caller to write a header via ``append(collectionHeader:)`` and
+    //  loop over the right leaf method.
+
+    /// Appends a `Bool` as a single byte (`1` for `true`, `0` for `false`),
+    /// matching `Bool.encode(to: inout BufferEncoder)`.
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(_ value: Bool) {
+        self.append(value ? UInt8(1) : UInt8(0))
+    }
+
+    /// Appends a `Double` as its IEEE-754 `bitPattern` (a `UInt64`) in
+    /// little-endian byte order, matching `Double.encode(to: inout BufferEncoder)`
+    /// which forwards to `self.bitPattern.encode(to:)`.
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(_ value: Double) {
+        self.appendLittleEndian(value.bitPattern)
+    }
+
+    /// Appends a `Float` as its IEEE-754 `bitPattern` (a `UInt32`) in
+    /// little-endian byte order, matching `Float.encode(to: inout BufferEncoder)`
+    /// which forwards to `self.bitPattern.encode(to:)`.
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(_ value: Float) {
+        self.appendLittleEndian(value.bitPattern)
+    }
+
+    /// Appends a `String` in the wire format `String`/`Substring` produce:
+    /// a format byte then payload. Byte-identical to
+    /// `Substring.encode(to: inout BufferEncoder)`:
+    ///
+    /// - empty -> format `2` (`.none`), no payload;
+    /// - compact (format `0`) iff the UTF-8 is `<= 256` code units AND contains
+    ///   no `0x00` byte -> the UTF-8 bytes followed by a trailing `0x00`;
+    /// - long (format `1`) otherwise -> a 40-bit length as `UInt32` low +
+    ///   `UInt8` high (computed through `UInt64`, so the `>> 32` is well-defined
+    ///   on 32-bit platforms) followed by the raw UTF-8 bytes.
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(_ string: String) {
+        //  `withUTF8` makes the string's UTF-8 contiguous (a no-op for the native
+        //  strings that dominate in practice) and yields a borrowed buffer; the
+        //  whole encode happens inside, in one bounds-check-free scan + one bulk
+        //  copy, allocation-free. The `count <= 256 && !contains(0)` rule is the
+        //  format choice from `Substring.encode(to:)`; over a contiguous buffer it
+        //  is identical to that path's `withContiguousStorageIfAvailable` fast path
+        //  AND to its generic `i < 256` fallback scan (both pick compact for the
+        //  same strings), so the bytes are identical. A `~Copyable` / `~Escapable`
+        //  encoder CAN be mutated through this non-escaping closure.
+        var local: String = string
+        local.withUTF8 { (utf8: UnsafeBufferPointer<UInt8>) in
+            if  utf8.isEmpty {
+                self.append(UInt8(2))  // String.BinaryFormat.none
+                return
+            }
+            let compact: Bool = utf8.count <= 256 && !utf8.contains(0)
+            self.appendStringPayload(UnsafeRawBufferPointer(utf8), compact: compact)
+        }
+    }
+
+    /// Appends a `Substring` in the wire format `Substring` produces; see
+    /// ``append(_:)-(String)``. Byte-identical to
+    /// `Substring.encode(to: inout BufferEncoder)`.
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(_ substring: Substring) {
+        self.append(String(substring))
+    }
+
+    /// Shared tail for ``append(_:)-(Substring)``: writes the format byte and the
+    /// UTF-8 payload. `utf8` must be non-empty. `compact` selects format `0`
+    /// (UTF-8 + trailing `0x00`) vs format `1` (40-bit length prefix + UTF-8).
+    @_lifetime(self: copy self)
+    @inlinable mutating func appendStringPayload(
+        _ utf8: UnsafeRawBufferPointer,
+        compact: Bool
+    ) {
+        if  compact {
+            self.append(UInt8(0))      // String.BinaryFormat.compact
+            self.append(copying: utf8)
+            self.append(UInt8(0x00))
+        } else {
+            //  1 TB ought to be enough for anyone. Compute the 40-bit length
+            //  through `UInt64` so the `>> 32` is well-defined on 32-bit
+            //  platforms too (the bytes emitted are identical on 64-bit).
+            let size: UInt64 = .init(utf8.count)
+            let high: UInt8 = .init(size >> 32)
+            let low: UInt32 = .init(truncatingIfNeeded: size)
+
+            self.append(UInt8(1))      // String.BinaryFormat.long
+            self.appendLittleEndian(low)
+            self.append(high)
+            self.append(copying: utf8)
+        }
+    }
+
+    /// Appends a `CollectionHeader` for a collection of `count` elements,
+    /// byte-identical to `CollectionHeader.encode(to: inout BufferEncoder)`:
+    /// a single byte equal to `count` when `count < 255`, otherwise `0xFF`
+    /// followed by `count` as a little-endian `Int`. The caller writes this
+    /// header, then loops over the elements calling the matching leaf method
+    /// (there is no generic dispatch — see the type doc comment).
+    @_lifetime(self: copy self)
+    @inlinable public mutating func append(collectionHeader count: Int) {
+        if  count < 255 {
+            self.append(UInt8(count))
+        } else {
+            self.append(UInt8.max)     // 0xFF sentinel
+            self.appendLittleEndian(count)
         }
     }
 }

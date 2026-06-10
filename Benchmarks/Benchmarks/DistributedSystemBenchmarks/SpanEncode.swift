@@ -21,16 +21,21 @@ import DistributedABI
 //                               outside the measured region (the MDB_RESERVE /
 //                               ByteBuffer.writeWithOutputRawSpan case). Per message: a cheap
 //                               encodedSize() pass, then direct writes. No staging, no copy.
-//  (G)    EncodeOutputSpanGrow— Array(capacity:initializingWith:) producing a [UInt8] like
-//                               BASE, but the internal writes go through OutputSpan instead of
-//                               Array.append. Still pays the send copy like BASE.
+//  (G)    EncodeOutputSpanGrow— a [UInt8] sized to the batch and written through the LIBRARY
+//                               `SpanEncoder` (an OutputRawSpan over the array's own storage),
+//                               then the send copy like BASE.
+//
+//  IMPORTANT: this file contains NO wire-format logic. Every per-field write goes through the
+//  LIBRARY `SpanEncoder` methods (`appendLittleEndian`, `append(_: String)`,
+//  `append(collectionHeader:)`, the optional discriminant). The benchmark only owns the field
+//  ORDER and the reserve/copy plumbing; the byte layout lives entirely in `DistributedABI`.
 
 //  MARK: - The message (identical shape to SpanDecode's SpanBenchMessage).
 
 /// 6x UInt64 + 2x UInt64? + a short identifier string — the shape a zero-copy encode entry
 /// point would write to the wire. Encodes the SAME wire format through `BufferEncoder`
-/// (the [UInt8] baseline), `SpanEncoder` (OutputRawSpan), and an OutputSpan growable path,
-/// so all three are compared byte-for-byte.
+/// (the [UInt8] baseline) and `SpanEncoder` (OutputRawSpan), so all variants are compared
+/// byte-for-byte.
 struct SpanEncMessage: Equatable {
     var a: UInt64
     var b: UInt64
@@ -92,6 +97,9 @@ struct SpanEncMessage: Equatable {
     //  for the empty `.none` case). `name.utf8.count` is O(1) on a native string, so this
     //  stays a handful of adds — no recursion and no allocation. (See the report note on how
     //  this scales for NESTED variable-size types.)
+    //
+    //  This is a SIZE pass (it computes byte counts, it does not lay out bytes), so the wire
+    //  layout it mirrors is documented inline; the actual byte writing is all in the LIBRARY.
     var encodedSize: Int {
         var n: Int = 8 * 6                       // a...f
         n += SpanEncMessage.optionalSize(self.g) // g
@@ -104,8 +112,9 @@ struct SpanEncMessage: Equatable {
         v == nil ? 1 : 1 + 8
     }
 
-    /// Mirror of the `Substring` encode fast path: compact (<= 256 UTF-8 bytes, no NUL) is
-    /// 1 format byte + bytes + 1 NUL; long is 1 + 4 + 1 + bytes; empty is 1 byte.
+    /// Mirror of the library `SpanEncoder.append(_: String)` size: compact (<= 256 UTF-8
+    /// bytes, no NUL) is 1 format byte + bytes + 1 NUL; long is 1 + 4 + 1 + bytes; empty is
+    /// 1 byte.
     static func stringSize(_ s: String) -> Int {
         let count: Int = s.utf8.count
         if count == 0 { return 1 }
@@ -115,7 +124,12 @@ struct SpanEncMessage: Equatable {
         return 6 + count
     }
 
-    //  MARK: - (R) direct write through SpanEncoder (OutputRawSpan). Same wire format.
+    //  MARK: - (R) direct write through the LIBRARY SpanEncoder (OutputRawSpan).
+    //
+    //  No wire-format logic here: every field write is a LIBRARY method. The optional is a
+    //  discriminant byte (Optional.BinaryFormat: .none = 0, .some = 1) then the wrapped value
+    //  — that 0/1 byte is the only field-shape decision the caller owns (deliberately no
+    //  generic Optional helper in the library; see SpanEncoder's doc comment).
     func encode(to output: inout SpanEncoder) {
         output.appendLittleEndian(self.a)
         output.appendLittleEndian(self.b)
@@ -125,36 +139,18 @@ struct SpanEncMessage: Equatable {
         output.appendLittleEndian(self.f)
         SpanEncMessage.encodeOptional(self.g, to: &output)
         SpanEncMessage.encodeOptional(self.h, to: &output)
-        SpanEncMessage.encodeString(self.name, to: &output)
+        output.append(self.name)
     }
 
+    /// Caller-side optional: the discriminant byte then the wrapped value through the library
+    /// leaf method. The library intentionally has no generic `Optional` encode (no
+    /// `SpanEncodable` protocol), so the 0/1 byte is written here.
     static func encodeOptional(_ v: UInt64?, to output: inout SpanEncoder) {
         if let v {
-            output.append(1)                 // Optional.BinaryFormat.some
+            output.append(UInt8(1))          // Optional.BinaryFormat.some
             output.appendLittleEndian(v)
         } else {
-            output.append(0)                 // Optional.BinaryFormat.none
-        }
-    }
-
-    static func encodeString(_ s: String, to output: inout SpanEncoder) {
-        var local: String = s
-        local.withUTF8 { (utf8: UnsafeBufferPointer<UInt8>) in
-            if utf8.isEmpty {
-                output.append(2)             // String.BinaryFormat.none
-                return
-            }
-            if utf8.count <= 256 && !utf8.contains(0) {
-                output.append(0)             // .compact
-                output.append(copying: UnsafeRawBufferPointer(utf8))
-                output.append(0x00)
-            } else {
-                let size: UInt64 = .init(utf8.count)
-                output.append(1)             // .long
-                output.appendLittleEndian(UInt32(truncatingIfNeeded: size))
-                output.append(UInt8(size >> 32))
-                output.append(copying: UnsafeRawBufferPointer(utf8))
-            }
+            output.append(UInt8(0))          // Optional.BinaryFormat.none
         }
     }
 }
@@ -222,78 +218,32 @@ func encodeRawSpanReserve(
     blackHole(offset)
 }
 
-//  MARK: - (G) Array(capacity:initializingWith:) — OutputSpan internal writes, still produces
-//  a [UInt8] and still pays the send copy.
+//  MARK: - (G) [UInt8] sized to the batch, written through the LIBRARY SpanEncoder, then the
+//  send copy. Exercises the library encode path while still producing a [UInt8] like BASE.
 
 @inline(never)
 func encodeOutputSpanGrow(_ messages: [SpanEncMessage], wire: inout [UInt8]) {
-    //  Same total-size pass as R (Array(capacity:initializingWith:) covers EXACTLY the
-    //  requested count), but the writes go through OutputSpan<UInt8> instead of
-    //  Array.append, to see whether the encoder's INTERNAL write path gets cheaper even when
-    //  still producing an Array.
+    //  Same total-size pass as R, but the bytes are written into a freshly sized `[UInt8]`
+    //  via the LIBRARY `SpanEncoder` over an OutputRawSpan that points at the array's own
+    //  storage (`Array.init(unsafeUninitializedCapacity:)`), so the per-field writes go
+    //  through library code exactly like R. The send copy is paid exactly as BASE pays it.
     let total: Int = messages.reduce(0) { $0 + $1.encodedSize }
-    let produced: [UInt8] = .init(capacity: total) { (span: inout OutputSpan<UInt8>) in
+    let produced: [UInt8] = .init(unsafeUninitializedCapacity: total) {
+        (buffer: inout UnsafeMutableBufferPointer<UInt8>, initialized: inout Int) in
+        //  One SpanEncoder over the array's own storage for the WHOLE batch: every message's
+        //  fields are written in sequence through the LIBRARY methods, exactly like R, but
+        //  the destination is the [UInt8]'s own buffer (so a send copy is still owed).
+        let raw: UnsafeMutableRawBufferPointer = .init(buffer)
+        var encoder: SpanEncoder = .init(.init(buffer: raw, initializedCount: 0))
         for message in messages {
-            appendMessage(message, to: &span)
+            message.encode(to: &encoder)
         }
+        initialized = encoder.finalize()
     }
     //  The send copy, exactly as BASE pays it.
     wire.removeAll(keepingCapacity: true)
     wire.append(contentsOf: produced)
     blackHole(wire.count)
-}
-
-@inline(__always)
-func appendLE<T: FixedWidthInteger & BitwiseCopyable>(_ value: T, to span: inout OutputSpan<UInt8>) {
-    var le: T = value.littleEndian
-    withUnsafeBytes(of: &le) { (raw: UnsafeRawBufferPointer) in
-        for byte in raw { span.append(byte) }
-    }
-}
-
-@inline(__always)
-func appendMessage(_ m: SpanEncMessage, to span: inout OutputSpan<UInt8>) {
-    appendLE(m.a, to: &span)
-    appendLE(m.b, to: &span)
-    appendLE(m.c, to: &span)
-    appendLE(m.d, to: &span)
-    appendLE(m.e, to: &span)
-    appendLE(m.f, to: &span)
-    appendOptional(m.g, to: &span)
-    appendOptional(m.h, to: &span)
-    appendString(m.name, to: &span)
-}
-
-@inline(__always)
-func appendOptional(_ v: UInt64?, to span: inout OutputSpan<UInt8>) {
-    if let v {
-        span.append(1)
-        appendLE(v, to: &span)
-    } else {
-        span.append(0)
-    }
-}
-
-@inline(__always)
-func appendString(_ s: String, to span: inout OutputSpan<UInt8>) {
-    var local: String = s
-    local.withUTF8 { (utf8: UnsafeBufferPointer<UInt8>) in
-        if utf8.isEmpty {
-            span.append(2)
-            return
-        }
-        if utf8.count <= 256 && !utf8.contains(0) {
-            span.append(0)
-            for byte in utf8 { span.append(byte) }
-            span.append(0x00)
-        } else {
-            let size: UInt64 = .init(utf8.count)
-            span.append(1)
-            appendLE(UInt32(truncatingIfNeeded: size), to: &span)
-            span.append(UInt8(size >> 32))
-            for byte in utf8 { span.append(byte) }
-        }
-    }
 }
 
 //  MARK: - (R size pass only) isolate the cost of the encodedSize() pre-pass.
@@ -327,10 +277,9 @@ func rawSpanBytes(_ messages: [SpanEncMessage]) -> [UInt8] {
 
 /// Encode a batch through G into a fresh [UInt8].
 func outputSpanBytes(_ messages: [SpanEncMessage]) -> [UInt8] {
-    let total: Int = messages.reduce(0) { $0 + $1.encodedSize }
-    return .init(capacity: total) { (span: inout OutputSpan<UInt8>) in
-        for message in messages { appendMessage(message, to: &span) }
-    }
+    var wire: [UInt8] = []
+    encodeOutputSpanGrow(messages, wire: &wire)
+    return wire
 }
 
 /// Verify R and G are byte-identical to BASE and decode back to the originals.
