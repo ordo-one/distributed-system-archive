@@ -56,6 +56,30 @@ import DistributedABI
         }
     }
     Benchmark.init(
+        "RoundtripIntBatch",
+        configuration: .init(metrics: .default, timeUnits: .microseconds)
+    ) {
+        var ints: [Int] = [_].init(0 ... 10000)
+
+        $0.startMeasurement()
+
+        for _ in $0.scaledIterations {
+            blackHole(try roundtripBatch(ints))
+        }
+    }
+    Benchmark.init(
+        "RoundtripStringBatch",
+        configuration: .init(metrics: .default, timeUnits: .microseconds)
+    ) {
+        var strings: [String] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
+
+        $0.startMeasurement()
+
+        for _ in $0.scaledIterations {
+            blackHole(try roundtripBatch(strings))
+        }
+    }
+    Benchmark.init(
         "RoundtripDictionary?",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
@@ -76,6 +100,9 @@ import DistributedABI
             blackHole(try roundtrip(dictionaries))
         }
     }
+
+    // Production-representative payload benchmarks (see Payloads.swift).
+    registerPayloadBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
@@ -117,4 +144,35 @@ import DistributedABI
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
+}
+
+// MARK: - batched variants: one shared buffer for the whole batch, the production
+// message shape (many fields encoded into a single send buffer, decoded sequentially).
+// Amortizes the encoder allocation across all elements.
+
+@inline(never) func roundtripBatch(_ values: [Int]) throws -> [Int] {
+    var encoder: BufferEncoder = .init(capacity: values.count * 8)
+    for value: Int in values {
+        value.encode(to: &encoder)
+    }
+    var decoder: BufferDecoder = .init(encoder.output)
+    var output: [Int] = []
+    output.reserveCapacity(values.count)
+    for _ in 0 ..< values.count {
+        output.append(try .decode(from: &decoder))
+    }
+    return output
+}
+@inline(never) func roundtripBatch(_ values: [String]) throws -> [String] {
+    var encoder: BufferEncoder = .init(capacity: 16 * values.count)
+    for value: String in values {
+        value.encode(to: &encoder)
+    }
+    var decoder: BufferDecoder = .init(encoder.output)
+    var output: [String] = []
+    output.reserveCapacity(values.count)
+    for _ in 0 ..< values.count {
+        output.append(try .decode(from: &decoder))
+    }
+    return output
 }
