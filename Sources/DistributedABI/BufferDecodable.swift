@@ -46,7 +46,7 @@ extension BufferDecodable where Self: RangeReplaceableCollection, Element: Buffe
         //  are remaining bytes (each element is at least one byte). This prevents a
         //  9-byte header from forcing a multi-gigabyte allocation before any element
         //  has been read. Capacity still grows organically if the count is genuine.
-        ;   values.reserveCapacity(Swift.min(header.count, input.remaining))
+        values.reserveCapacity(Swift.min(header.count, input.remaining))
         for _: Int in 0 ..< header.count {
             do {
                 values.append(try .decode(from: &input))
