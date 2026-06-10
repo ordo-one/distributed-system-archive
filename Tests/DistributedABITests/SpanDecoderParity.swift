@@ -76,6 +76,38 @@ import Testing
         try Self.parity(Float.infinity)
     }
 
+    /// `==` cannot assert NaN and does not distinguish `-0.0` from `0.0`, so the
+    /// generic `parity(_:)` helper would silently pass those values. Compare bit
+    /// patterns instead, holding the wire encoding of every special float value to
+    /// SpanDecoder == BufferDecoder == original.
+    @Test static func floatingPointBitPatterns() throws {
+        func parityBits<F>(_ value: F, _ bits: (F) -> UInt64) throws
+            where F: BufferEncodable & BufferDecodable & SpanDecodable {
+            var encoder: BufferEncoder = .init(preallocated: [])
+            try value.encode(to: &encoder)
+            let bytes: [UInt8] = .init(encoder.output)
+
+            var bufferDecoder: BufferDecoder = .init(bytes[...])
+            let viaBuffer: F = try .decode(from: &bufferDecoder)
+
+            let viaSpan: F = try bytes.withUnsafeBytes {
+                (raw: UnsafeRawBufferPointer) throws -> F in
+                var spanDecoder: SpanDecoder = .init(RawSpan(_unsafeBytes: raw))
+                return try .decode(from: &spanDecoder)
+            }
+            #expect(bits(viaSpan) == bits(viaBuffer), "SpanDecoder disagreed with BufferDecoder")
+            #expect(bits(viaSpan) == bits(value), "SpanDecoder did not round-trip the original")
+        }
+        try parityBits(-Double(0)) { $0.bitPattern }
+        try parityBits(Double.nan) { $0.bitPattern }
+        try parityBits(Double(bitPattern: 0x7FF0_0000_0000_0001)) { $0.bitPattern } // signaling NaN
+        try parityBits(Double(bitPattern: .max)) { $0.bitPattern }                  // all-ones
+        try parityBits(-Float(0)) { UInt64($0.bitPattern) }
+        try parityBits(Float.nan) { UInt64($0.bitPattern) }
+        try parityBits(Float(bitPattern: 0x7F80_0001)) { UInt64($0.bitPattern) }    // signaling NaN
+        try parityBits(Float(bitPattern: .max)) { UInt64($0.bitPattern) }
+    }
+
     // MARK: RawRepresentable (generic default)
 
     enum Color: UInt8, BufferEncodable, BufferDecodable, SpanDecodable, Equatable {
