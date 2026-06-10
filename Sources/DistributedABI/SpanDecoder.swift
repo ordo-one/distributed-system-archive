@@ -96,16 +96,12 @@ extension SpanDecoder {
     ) throws(BufferDecodingError) -> T {
         let start: Int = self.index
         let count: Int = self.span.byteCount
+        // `firstIndex(of:)` on the raw buffer lowers to a vectorized memchr and
+        // returns an absolute offset (slices of `UnsafeRawBufferPointer` keep the
+        // base index space), so no rebasing is needed.
         let match: Int? = self.span.withUnsafeBytes {
             (buffer: UnsafeRawBufferPointer) -> Int? in
-            var i: Int = start
-            while i < count {
-                if  buffer.loadUnaligned(fromByteOffset: i, as: UInt8.self) == byte {
-                    return i
-                }
-                i += 1
-            }
-            return nil
+            buffer[start ..< count].firstIndex(of: byte)
         }
         guard let match: Int else {
             self.index = count
@@ -207,7 +203,7 @@ extension SpanDecodable where Self: RangeReplaceableCollection, Element: SpanDec
         //  are remaining bytes (each element is at least one byte). This prevents a
         //  9-byte header from forcing a multi-gigabyte allocation before any element
         //  has been read. Capacity still grows organically if the count is genuine.
-        ;   values.reserveCapacity(Swift.min(header.count, input.remaining))
+        values.reserveCapacity(Swift.min(header.count, input.remaining))
         for _: Int in 0 ..< header.count {
             do {
                 values.append(try .decode(from: &input))
@@ -282,7 +278,8 @@ extension String: SpanDecodable {
         case 1:     // .long — length-prefixed UTF-8
             let low: UInt32 = try .decode(from: &input)
             let high: UInt8 = try .decode(from: &input)
-            let size: Int = Int(high) << 32 | Int(low)
+            // shift on `UInt64` so the `<< 32` is well-defined on 32-bit too
+            let size: Int = .init(UInt64(high) << 32 | UInt64(low))
             return try input.parse(size: size) {
                 (region: RawSpan) -> String in
                 region.withUnsafeBytes { String(decoding: $0, as: Unicode.UTF8.self) }
@@ -347,7 +344,7 @@ extension Set: SpanDecodable where Element: SpanDecodable {
         let header: CollectionHeader = try .decode(from: &input)
         var values: Self = []
         //  Clamp the speculative reservation to the available bytes (see Array.decode).
-        ;   values.reserveCapacity(Swift.min(header.count, input.remaining))
+        values.reserveCapacity(Swift.min(header.count, input.remaining))
         for i: Int in 0 ..< header.count {
             let value: Element
             do {
