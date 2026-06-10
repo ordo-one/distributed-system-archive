@@ -99,6 +99,15 @@ extension BufferDecoder {
     }
 }
 extension BufferDecoder {
+    /// The number of bytes remaining to be consumed from the input. Because every
+    /// encoded element occupies at least one byte on the wire, this is a safe upper
+    /// bound on the number of elements a (possibly hostile) length header can require,
+    /// and should be used to clamp speculative `reserveCapacity` calls.
+    @inlinable public var remaining: Int {
+        self.bytes.distance(from: self.index, to: self.bytes.endIndex)
+    }
+}
+extension BufferDecoder {
     /// Creates an ``InputError`` with appropriate context for the specified expectation.
     @inlinable func expected(
         _ expectation: BufferDecodingError.Expectation

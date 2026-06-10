@@ -25,7 +25,13 @@ extension CollectionHeader: BufferDecodable {
     ) throws(BufferDecodingError) -> Self {
         let first: UInt8 = try .decode(from: &input)
         if  first == .max {
-            return .init(count: try .decode(from: &input))
+            let count: Int = try .decode(from: &input)
+            //  A negative count is never valid and would trap the `0 ..< count`
+            //  loops that consume collection elements; reject it up front.
+            guard count >= 0 else {
+                throw input.expected(.bytes(0))
+            }
+            return .init(count: count)
         } else {
             return .init(count: Int.init(first))
         }
