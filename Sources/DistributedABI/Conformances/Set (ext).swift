@@ -6,7 +6,7 @@ extension Set: BufferDecodable where Element: BufferDecodable {
         let header: CollectionHeader = try .decode(from: &input)
         var values: Self = []
         //  Clamp the speculative reservation to the available bytes (see Array.decode).
-        ;   values.reserveCapacity(Swift.min(header.count, input.remaining))
+        values.reserveCapacity(Swift.min(header.count, input.remaining))
         for i: Int in 0 ..< header.count {
             let value: Element
             do {
