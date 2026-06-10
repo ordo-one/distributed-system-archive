@@ -106,6 +106,9 @@ import DistributedABI
 
     // Zero-copy decode pricing: SpanDecoder vs the post-#23 baseline (see SpanDecode.swift).
     registerSpanDecodeBenchmarks()
+
+    // Zero-copy encode pricing: SpanEncoder vs the post-#23 baseline (see SpanEncode.swift).
+    registerSpanEncodeBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {

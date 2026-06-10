@@ -44,9 +44,9 @@ package.targets = package.targets.map {
         var settings: [SwiftSetting] = $0 ?? []
 
         settings.append(.enableUpcomingFeature("ExistentialAny"))
-        //  `SpanDecoder` is `~Escapable` and uses `@_lifetime(...)`, which require the
-        //  experimental Lifetimes feature. It is an implementation detail of the
-        //  `DistributedABI` module only — clients linking the resilient
+        //  `SpanDecoder` / `SpanEncoder` are `~Escapable` and use `@_lifetime(...)`,
+        //  which require the experimental Lifetimes feature. It is an implementation
+        //  detail of the `DistributedABI` module only — clients linking the resilient
         //  `OrdoDistributedABI` dylib do not need the flag.
         if targetName == "DistributedABI" {
             settings.append(.enableExperimentalFeature("Lifetimes"))
