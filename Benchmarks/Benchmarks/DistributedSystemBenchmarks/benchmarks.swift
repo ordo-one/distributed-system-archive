@@ -103,6 +103,9 @@ import DistributedABI
 
     // Production-representative payload benchmarks (see Payloads.swift).
     registerPayloadBenchmarks()
+
+    // Zero-copy decode pricing: SpanDecoder vs the post-#23 baseline (see SpanDecode.swift).
+    registerSpanDecodeBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
