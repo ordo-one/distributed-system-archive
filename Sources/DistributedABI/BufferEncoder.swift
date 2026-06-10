@@ -1,10 +1,15 @@
 @frozen public struct BufferEncoder: ~Copyable, Sendable {
-    @usableFromInline var bytes: ArraySlice<UInt8>
+    @usableFromInline var bytes: [UInt8]
 
     /// Create an output with a pre-allocated destination buffer. The buffer
     /// does *not* need to be empty, and existing data will not be cleared.
+    ///
+    /// >   Note:
+    ///     The slice's contents are copied into the encoder's internal storage
+    ///     (`[UInt8]`), unless the slice spans an entire array buffer that is
+    ///     uniquely referenced, in which case the conversion is free.
     @inlinable public init(preallocated bytes: ArraySlice<UInt8>) {
-        self.bytes = bytes
+        self.bytes = .init(bytes)
     }
 
     /// Create an empty output, reserving enough space for the specified
@@ -16,7 +21,7 @@
 }
 extension BufferEncoder {
     @inlinable public var output: ArraySlice<UInt8> {
-        consuming get { self.bytes }
+        consuming get { self.bytes[...] }
     }
 }
 extension BufferEncoder {
