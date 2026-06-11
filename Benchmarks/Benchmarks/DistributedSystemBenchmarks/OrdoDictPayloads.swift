@@ -42,11 +42,11 @@ struct SplitMix64: RandomNumberGenerator {
 func makeHandleObjects() -> [Int: [String: Int]] {
     var rng = SplitMix64(seed: 0x4F62_6A65_6374_0001)  // "Object" + tag
     var outer: [Int: [String: Int]] = [:]
-    outer.reserveCapacity(64)
-    for k in 0 ..< 64 {
+    outer.reserveCapacity(24)
+    for k in 0 ..< 24 {                                          // 24 partitions
         var inner: [String: Int] = [:]
-        inner.reserveCapacity(16)
-        for j in 0 ..< 16 {
+        inner.reserveCapacity(4)
+        for j in 0 ..< 4 {                                       // 4 datacenters
             let key = "datacenter-\(String(format: "%02d", j))"  // 12-char "datacenter-NN"
             inner[key] = Int(rng.next() >> 1)                    // non-negative Int
         }
@@ -66,11 +66,11 @@ func makeHandleObjects() -> [Int: [String: Int]] {
 func makeHandleBarrierOffsets() -> [String: [Int32: Int64]] {
     var rng = SplitMix64(seed: 0x4261_7272_6965_7202)  // "Barrier" + tag
     var outer: [String: [Int32: Int64]] = [:]
-    outer.reserveCapacity(8)
-    for d in 0 ..< 8 {
+    outer.reserveCapacity(4)
+    for d in 0 ..< 4 {                                          // 4 datacenters
         var inner: [Int32: Int64] = [:]
-        inner.reserveCapacity(64)
-        for p in 0 ..< 64 {
+        inner.reserveCapacity(24)
+        for p in 0 ..< 24 {                                     // 24 partitions
             inner[Int32(p)] = Int64(bitPattern: rng.next())  // random offset
         }
         outer["datacenter-\(d)"] = inner
@@ -86,12 +86,12 @@ func makeHandleBarrierOffsets() -> [String: [Int32: Int64]] {
 //  Fixture: 1000 entries, keys random UInt64, values .some(random UInt64) for
 //  even-index entries and nil for odd.
 
-func makeObjectSet() -> [UInt64: UInt64?] {
+func makeObjectSet(_ n: Int) -> [UInt64: UInt64?] {
     var rng = SplitMix64(seed: 0x4F62_6A53_6574_0003)  // "ObjSet" + tag
     var dict: [UInt64: UInt64?] = [:]
-    dict.reserveCapacity(1000)
+    dict.reserveCapacity(n)
     var i = 0
-    while dict.count < 1000 {
+    while dict.count < n {
         let key = rng.next()
         let value: UInt64? = (i & 1 == 0) ? .some(rng.next()) : nil
         if dict.index(forKey: key) == nil {
@@ -156,15 +156,7 @@ func registerOrdoDictPayloads() {
         "handleBarrierOffsets round-trip mismatch"
     )
 
-    //  (3) objectSet — [UInt64: UInt64?] — WARM
-    //      Cache+Synchronization.swift:14 ([ObjectID: CacheSynchronizationSource?]
-    //      proxy; per ObjectSet resync).
-    let objectSet = makeObjectSet()
-    let objectSetWire = preEncode(objectSet)
-    precondition(
-        (try? decodeProd(objectSetWire, as: [UInt64: UInt64?].self)) == objectSet,
-        "objectSet round-trip mismatch"
-    )
+    //  (3) objectSet — [UInt64: UInt64?] — WARM — registered as a size sweep below.
 
     //  ENCODE benchmarks: produce wire bytes into a reused [UInt8] (the send
     //  buffer build). blackHole(wire.count).
@@ -197,20 +189,6 @@ func registerOrdoDictPayloads() {
         }
     }
 
-    //  Cache+Synchronization.swift:14 — WARM
-    Benchmark.init(
-        "ProdDict objectSet encode",
-        configuration: .init(metrics: metrics, timeUnits: .microseconds)
-    ) { benchmark in
-        var wire: [UInt8] = []
-        wire.reserveCapacity(objectSetWire.count)
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            encodeProd(objectSet, into: &wire)
-            blackHole(wire.count)
-        }
-    }
-
     //  DECODE benchmarks: from a pre-encoded wire buffer built once outside the
     //  measured region; decode via T(fromSerializedBuffer:). blackHole the count.
 
@@ -238,15 +216,37 @@ func registerOrdoDictPayloads() {
         }
     }
 
-    //  Cache+Synchronization.swift:14 — WARM
-    Benchmark.init(
-        "ProdDict objectSet decode",
-        configuration: .init(metrics: metrics, timeUnits: .microseconds)
-    ) { benchmark in
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            let decoded = try decodeProd(objectSetWire, as: [UInt64: UInt64?].self)
-            blackHole(decoded.count)
+    //  (3) objectSet — [UInt64: UInt64?] — WARM — Cache+Synchronization.swift:14
+    //      ([ObjectID: CacheSynchronizationSource?] proxy; sized to the object set).
+    //      Swept 1k/10k/100k since the object-set count is deployment-dependent.
+    for n in [1000, 10000, 100000] {
+        let objectSet = makeObjectSet(n)
+        let objectSetWire = preEncode(objectSet)
+        precondition(
+            (try? decodeProd(objectSetWire, as: [UInt64: UInt64?].self)) == objectSet,
+            "objectSet \(n) round-trip mismatch"
+        )
+        Benchmark.init(
+            "ProdDict objectSet \(n) encode",
+            configuration: .init(metrics: metrics, timeUnits: .microseconds)
+        ) { benchmark in
+            var wire: [UInt8] = []
+            wire.reserveCapacity(objectSetWire.count)
+            benchmark.startMeasurement()
+            for _ in benchmark.scaledIterations {
+                encodeProd(objectSet, into: &wire)
+                blackHole(wire.count)
+            }
+        }
+        Benchmark.init(
+            "ProdDict objectSet \(n) decode",
+            configuration: .init(metrics: metrics, timeUnits: .microseconds)
+        ) { benchmark in
+            benchmark.startMeasurement()
+            for _ in benchmark.scaledIterations {
+                let decoded = try decodeProd(objectSetWire, as: [UInt64: UInt64?].self)
+                blackHole(decoded.count)
+            }
         }
     }
 }
