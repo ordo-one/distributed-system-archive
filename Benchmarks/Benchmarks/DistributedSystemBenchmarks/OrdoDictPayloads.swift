@@ -49,32 +49,33 @@ struct SplitMix64: RandomNumberGenerator {
 //      HOT — cache-sync object data stream.
 //      Real site: ~/GitHub/internal-distributed-system .../Endpoints/LoadBalancer/Cache+Synchronization.swift:89
 //      backed by Buffers.lastOffsets, flushed on every ServerEndpoint.sendBuffers().
-//      64 outer entries (keys 0..63), each inner [String: Int] of 16 entries; inner keys are
-//      12-char "datacenter-NN" strings, inner values random non-negative Int (~1024 leaf pairs).
+//      24 outer entries (keys 0..23, one per partition), each inner [String: Int] of 4 entries
+//      (one per datacenter); inner keys are "datacenter-NN" strings, inner values random
+//      non-negative Int (~96 leaf pairs).
 //
 //  (2) handleBarrierOffsets — [String: [Int32: Int64]]
 //      WARM — per cache barrier.
 //      Real site: Cache+Synchronization.swift:93, type
 //      LastOffsets = [Datacenter.Name: [Storage.Partition: Storage.Offset]].
-//      8 outer entries (keys "datacenter-N"), each inner [Int32: Int64] of 64 entries
-//      (partition id -> random offset).
+//      4 outer entries (keys "datacenter-N", one per datacenter), each inner [Int32: Int64] of
+//      24 entries (partition id -> random offset).
 //
 //  (3) objectSetCacheSynchronizationRequest — modeled as [UInt64: UInt64?]
 //      WARM — per ObjectSet resync.
 //      Real site: Cache+Synchronization.swift:14, real type [ObjectID: CacheSynchronizationSource?];
 //      we model ObjectID as UInt64 and the optional source as UInt64? (NOTED as a proxy).
-//      1000 entries, keys random UInt64, values .some(random UInt64) for even-index entries and
-//      nil for odd.
+//      swept at 1k / 10k / 100k entries (object-set count is deployment-dependent); keys random
+//      UInt64, values .some(random UInt64) for even-index entries and nil for odd.
 
 enum OrdoDictFixtures {
-    /// (1) handleObjects — [Int: [String: Int]], 64 x 16.
+    /// (1) handleObjects — [Int: [String: Int]], 24 partitions x 4 datacenters.
     static func handleObjects() -> [Int: [String: Int]] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0001)
         var outer: [Int: [String: Int]] = .init(minimumCapacity: 24)
         for o in 0 ..< 24 {                                     // 24 partitions
             var inner: [String: Int] = .init(minimumCapacity: 4)
             for k in 0 ..< 4 {                                  // 4 datacenters
-                //  12-char datacenter-ish key "datacenter-NN" (NN = 00..15).
+                //  datacenter-ish key "datacenter-NN" (NN = 00..03).
                 let key: String = "datacenter-\(String(format2: k))"
                 inner[key] = Int(prng.next() & 0x7FFF_FFFF_FFFF_FFFF)  // non-negative
             }
@@ -83,7 +84,7 @@ enum OrdoDictFixtures {
         return outer
     }
 
-    /// (2) handleBarrierOffsets — [String: [Int32: Int64]], 8 x 64.
+    /// (2) handleBarrierOffsets — [String: [Int32: Int64]], 4 datacenters x 24 partitions.
     static func handleBarrierOffsets() -> [String: [Int32: Int64]] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0002)
         var outer: [String: [Int32: Int64]] = .init(minimumCapacity: 4)
@@ -98,7 +99,7 @@ enum OrdoDictFixtures {
         return outer
     }
 
-    /// (3) objectSetCacheSynchronizationRequest — [UInt64: UInt64?], 1000 entries.
+    /// (3) objectSetCacheSynchronizationRequest — [UInt64: UInt64?], swept 1k/10k/100k entries.
     static func objectSet(_ n: Int) -> [UInt64: UInt64?] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0003)
         var dict: [UInt64: UInt64?] = .init(minimumCapacity: n)
@@ -112,8 +113,8 @@ enum OrdoDictFixtures {
     }
 }
 
-/// Zero-pad a 0..99 integer to two digits without `String(format:)` (keeps the key exactly
-/// 12 chars: "datacenter-NN").
+/// Zero-pad a 0..99 integer to two digits without `String(format:)` (keeps the key a fixed
+/// 13 chars: "datacenter-NN").
 extension String {
     fileprivate init(format2 n: Int) {
         if n < 10 { self = "0\(n)" } else { self = "\(n)" }
