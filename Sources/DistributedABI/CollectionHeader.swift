@@ -9,7 +9,9 @@ extension CollectionHeader: BufferEncodable {
         let count: Int = self.count
         let first: UInt8
 
-        if  count < 255 {
+        //  `UInt8.max` is reserved as the marker for the extended (full-width count)
+        //  header, so a single-byte count can only go up to `UInt8.max - 1`.
+        if  count < .init(UInt8.max) {
             first = .init(count)
             first.encode(to: &output)
         } else {
