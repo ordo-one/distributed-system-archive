@@ -109,6 +109,9 @@ import DistributedABI
 
     // Zero-copy encode pricing: SpanEncoder vs the post-#23 baseline (see SpanEncode.swift).
     registerSpanEncodeBenchmarks()
+
+    // Ordo runtime RPC dictionary payloads: #23 vs #24 (see OrdoDictPayloads.swift).
+    registerOrdoDictBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
