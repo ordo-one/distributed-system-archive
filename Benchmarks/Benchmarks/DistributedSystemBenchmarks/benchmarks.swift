@@ -115,6 +115,9 @@ import DistributedABI
 
     // Trading-quoter big payload: Codable/JSON (today) vs #23 vs #24 (see QuoteTablePayload.swift).
     registerQuoteTableBenchmarks()
+
+    // Computed-property live values (BestPrice/MarketData): JSON (today) vs #23 vs #24 (see CPSPayload.swift).
+    registerCPSPayloadBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
