@@ -112,6 +112,9 @@ import DistributedABI
 
     // Ordo runtime RPC dictionary payloads: #23 vs #24 (see OrdoDictPayloads.swift).
     registerOrdoDictBenchmarks()
+
+    // Trading-quoter big payload: Codable/JSON (today) vs #23 vs #24 (see QuoteTablePayload.swift).
+    registerQuoteTableBenchmarks()
 }
 
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
