@@ -2,12 +2,6 @@ import DistributedABI
 import Testing
 
 @Suite enum WireFormatCheck {
-    private static func encode(_ string: String) -> [UInt8] {
-        var encoder: BufferEncoder = .init(preallocated: [])
-        string.encode(to: &encoder)
-        return [UInt8].init(encoder.output)
-    }
-
     @Test static func Empty() {
         #expect(Self.encode("") == [2])
     }
@@ -34,5 +28,12 @@ import Testing
         var decoder: BufferDecoder = .init(Self.encode(string)[...])
         let decoded: String = try .decode(from: &decoder)
         #expect(decoded == string)
+    }
+}
+extension WireFormatCheck {
+    private static func encode(_ string: String) -> [UInt8] {
+        var encoder: BufferEncoder = .init(preallocated: [])
+        string.encode(to: &encoder)
+        return [UInt8].init(encoder.output)
     }
 }

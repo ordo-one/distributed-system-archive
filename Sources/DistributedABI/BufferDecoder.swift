@@ -66,18 +66,10 @@ extension BufferDecoder {
         let start: Int = self.index
         let lower: Int = self.bytes.startIndex
         // scan over the unchecked buffer rather than the slice itself, to
-        // avoid per-byte bounds (and exclusivity) checks
+        // avoid per-byte bounds (and exclusivity) checks; `firstIndex(of:)`
+        // lowers to a vectorized memchr
         let match: Int? = self.bytes.withUnsafeBufferPointer {
-            (buffer: UnsafeBufferPointer<UInt8>) -> Int? in
-
-            var i: Int = start - lower
-            while i < buffer.count {
-                if  buffer[i] == byte {
-                    return i + lower
-                }
-                i += 1
-            }
-            return nil
+            $0[(start - lower)...].firstIndex(of: byte).map { $0 + lower }
         }
 
         guard
@@ -103,7 +95,7 @@ extension BufferDecoder {
     /// encoded element occupies at least one byte on the wire, this is a safe upper
     /// bound on the number of elements a (possibly hostile) length header can require,
     /// and should be used to clamp speculative `reserveCapacity` calls.
-    @inlinable public var remaining: Int {
+    @inlinable var remaining: Int {
         self.bytes.distance(from: self.index, to: self.bytes.endIndex)
     }
 }

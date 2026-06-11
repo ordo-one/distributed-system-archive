@@ -542,7 +542,7 @@ func roundtripPayloads<T: BufferEncodable & BufferDecodable>(
         var encoder: BufferEncoder = .init(preallocated: wire)
         wire = []
         try message.encode(to: &encoder)
-        wire = encoder.finalize()
+        wire = encoder.storage
         // model the receive copy: a FRESH [UInt8] the decoder reads from (the
         // ByteBuffer -> Array copy production pays on receive).
         let received: [UInt8] = Array(wire)

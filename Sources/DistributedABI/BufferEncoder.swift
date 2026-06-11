@@ -5,23 +5,10 @@
     /// without copying. The buffer does *not* need to be empty, and existing data
     /// will not be cleared. This is the zero-copy entry point: pass a buffer whose
     /// capacity you want to reuse (e.g. one reclaimed from a previous encoder via
-    /// ``finalize()`` after ``Swift/Array/removeAll(keepingCapacity:)``), and the
+    /// ``storage`` after ``Swift/Array/removeAll(keepingCapacity:)``), and the
     /// encoder appends in place with no reallocation while the buffer stays unique.
     @inlinable public init(preallocated bytes: consuming [UInt8]) {
         self.bytes = bytes
-    }
-
-    /// Create an output with a pre-allocated destination buffer. The buffer
-    /// does *not* need to be empty, and existing data will not be cleared.
-    ///
-    /// >   Note:
-    ///     The slice's contents are copied into the encoder's internal storage
-    ///     (`[UInt8]`), unless the slice spans an entire array buffer that is
-    ///     uniquely referenced, in which case the conversion is free. For a
-    ///     guaranteed zero-copy hand-off, use ``init(preallocated:)-(_)`` with a
-    ///     `[UInt8]` instead.
-    @inlinable public init(preallocated bytes: ArraySlice<UInt8>) {
-        self.bytes = .init(bytes)
     }
 
     /// Create an empty output, reserving enough space for the specified
@@ -38,9 +25,9 @@ extension BufferEncoder {
     /// Consumes the encoder and returns its backing `[UInt8]` buffer directly,
     /// with no copy. The returned array retains its full capacity, so it can be
     /// cleared (`removeAll(keepingCapacity:)`) and handed back to
-    /// ``init(preallocated:)-(_)`` to reuse the allocation across many encodes.
-    @inlinable public consuming func finalize() -> [UInt8] {
-        self.bytes
+    /// ``init(preallocated:)`` to reuse the allocation across many encodes.
+    @inlinable public var storage: [UInt8] {
+        consuming get { self.bytes }
     }
 }
 extension BufferEncoder {
