@@ -70,10 +70,10 @@ enum OrdoDictFixtures {
     /// (1) handleObjects — [Int: [String: Int]], 64 x 16.
     static func handleObjects() -> [Int: [String: Int]] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0001)
-        var outer: [Int: [String: Int]] = .init(minimumCapacity: 64)
-        for o in 0 ..< 64 {
-            var inner: [String: Int] = .init(minimumCapacity: 16)
-            for k in 0 ..< 16 {
+        var outer: [Int: [String: Int]] = .init(minimumCapacity: 24)
+        for o in 0 ..< 24 {                                     // 24 partitions
+            var inner: [String: Int] = .init(minimumCapacity: 4)
+            for k in 0 ..< 4 {                                  // 4 datacenters
                 //  12-char datacenter-ish key "datacenter-NN" (NN = 00..15).
                 let key: String = "datacenter-\(String(format2: k))"
                 inner[key] = Int(prng.next() & 0x7FFF_FFFF_FFFF_FFFF)  // non-negative
@@ -86,11 +86,11 @@ enum OrdoDictFixtures {
     /// (2) handleBarrierOffsets — [String: [Int32: Int64]], 8 x 64.
     static func handleBarrierOffsets() -> [String: [Int32: Int64]] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0002)
-        var outer: [String: [Int32: Int64]] = .init(minimumCapacity: 8)
-        for d in 0 ..< 8 {
+        var outer: [String: [Int32: Int64]] = .init(minimumCapacity: 4)
+        for d in 0 ..< 4 {                                      // 4 datacenters
             let key: String = "datacenter-\(d)"
-            var inner: [Int32: Int64] = .init(minimumCapacity: 64)
-            for p in 0 ..< 64 {
+            var inner: [Int32: Int64] = .init(minimumCapacity: 24)
+            for p in 0 ..< 24 {                                 // 24 partitions
                 inner[Int32(p)] = Int64(bitPattern: prng.next())  // random offset
             }
             outer[key] = inner
@@ -99,10 +99,10 @@ enum OrdoDictFixtures {
     }
 
     /// (3) objectSetCacheSynchronizationRequest — [UInt64: UInt64?], 1000 entries.
-    static func objectSet() -> [UInt64: UInt64?] {
+    static func objectSet(_ n: Int) -> [UInt64: UInt64?] {
         var prng: SplitMix64 = .init(seed: 0x4F52_444F_0000_0003)
-        var dict: [UInt64: UInt64?] = .init(minimumCapacity: 1_000)
-        for i in 0 ..< 1_000 {
+        var dict: [UInt64: UInt64?] = .init(minimumCapacity: n)
+        for i in 0 ..< n {
             let key: UInt64 = prng.next()
             //  even index -> .some(random), odd index -> nil.
             let value: UInt64? = (i & 1 == 0) ? prng.next() : nil
@@ -277,8 +277,8 @@ func ordoDictCorrect() -> Bool {
         guard try [String: [Int32: Int64]].decode(from: &boD) == bo else { return false }
         guard try span24Decode(boBytes24, as: [String: [Int32: Int64]].self) == bo else { return false }
 
-        //  (3) objectSet
-        let os: [UInt64: UInt64?] = OrdoDictFixtures.objectSet()
+        //  (3) objectSet (representative size for the correctness check)
+        let os: [UInt64: UInt64?] = OrdoDictFixtures.objectSet(1_000)
         let osBytes23: [UInt8] = buf23Bytes(os)
         let osBytes24: [UInt8] = span24Bytes(encodedSizeObjectSet(os)) { spanEncodeObjectSet(os, into: &$0) }
         guard osBytes24 == osBytes23 else { return false }
@@ -307,7 +307,6 @@ func registerOrdoDictBenchmarks() {
 
     let handleObjects: [Int: [String: Int]] = OrdoDictFixtures.handleObjects()
     let handleBarrierOffsets: [String: [Int32: Int64]] = OrdoDictFixtures.handleBarrierOffsets()
-    let objectSet: [UInt64: UInt64?] = OrdoDictFixtures.objectSet()
 
     // ============================================================ handleObjects (HOT)
     do {
@@ -420,14 +419,15 @@ func registerOrdoDictBenchmarks() {
         }
     }
 
-    // ============================================================ objectSet (WARM)
-    do {
-        let dict: [UInt64: UInt64?] = objectSet
+    // ============================================================ objectSet (WARM) — size sweep
+    //  objectSet is sized to the object-set count (deployment-dependent), so sweep 1k/10k/100k.
+    for n in [1_000, 10_000, 100_000] {
+        let dict: [UInt64: UInt64?] = OrdoDictFixtures.objectSet(n)
         let cap: Int = encodedSizeObjectSet(dict)
         let wire24: [UInt8] = span24Bytes(cap) { spanEncodeObjectSet(dict, into: &$0) }
         let wire23: [UInt8] = buf23Bytes(dict)
 
-        Benchmark.init("#23 objectSet encode", configuration: config()) { benchmark in
+        Benchmark.init("#23 objectSet \(n) encode", configuration: config()) { benchmark in
             var buffer: [UInt8] = []
             buffer.reserveCapacity(cap)
             benchmark.startMeasurement()
@@ -440,7 +440,7 @@ func registerOrdoDictBenchmarks() {
                 blackHole(buffer.count)
             }
         }
-        Benchmark.init("#23 objectSet decode", configuration: config()) { benchmark in
+        Benchmark.init("#23 objectSet \(n) decode", configuration: config()) { benchmark in
             benchmark.startMeasurement()
             for _ in benchmark.scaledIterations {
                 let copy: [UInt8] = Array(wire23)
@@ -448,7 +448,7 @@ func registerOrdoDictBenchmarks() {
                 blackHole(try [UInt64: UInt64?].decode(from: &d))
             }
         }
-        Benchmark.init("#24 objectSet encode", configuration: config()) { benchmark in
+        Benchmark.init("#24 objectSet \(n) encode", configuration: config()) { benchmark in
             let reserved: UnsafeMutableRawBufferPointer = .allocate(byteCount: cap, alignment: 1)
             defer { reserved.deallocate() }
             benchmark.startMeasurement()
@@ -461,7 +461,7 @@ func registerOrdoDictBenchmarks() {
                 blackHole(s.finalize())
             }
         }
-        Benchmark.init("#24 objectSet decode", configuration: config()) { benchmark in
+        Benchmark.init("#24 objectSet \(n) decode", configuration: config()) { benchmark in
             benchmark.startMeasurement()
             for _ in benchmark.scaledIterations {
                 wire24.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
