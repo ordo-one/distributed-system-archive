@@ -541,7 +541,7 @@ func roundtripPayloads<T: BufferEncodable & BufferDecodable>(
         wire.removeAll(keepingCapacity: true)
         var encoder: BufferEncoder = .init(preallocated: wire)
         wire = []
-        try message.encode(to: &encoder)
+        message.encode(to: &encoder)
         wire = encoder.storage
         // model the receive copy: a FRESH [UInt8] the decoder reads from (the
         // ByteBuffer -> Array copy production pays on receive).
@@ -560,7 +560,7 @@ func roundtripPayloadsNoCopy<T: BufferEncodable & BufferDecodable>(
 ) throws where T.SerializationError == Never {
     for message in messages {
         var encoder: BufferEncoder = .init(capacity: 256)
-        try message.encode(to: &encoder)
+        message.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         let value: T = try .decode(from: &decoder)
         blackHole(value)
@@ -657,7 +657,7 @@ func debugRoundtripOK<T: BufferEncodable & BufferDecodable & Equatable>(
 ) -> Bool where T.SerializationError == Never {
     do {
         var encoder: BufferEncoder = .init(capacity: 256)
-        try message.encode(to: &encoder)
+        message.encode(to: &encoder)
         let bytes: [UInt8] = Array(encoder.output)
         var decoder: BufferDecoder = .init(bytes[...])
         let decoded: T = try .decode(from: &decoder)

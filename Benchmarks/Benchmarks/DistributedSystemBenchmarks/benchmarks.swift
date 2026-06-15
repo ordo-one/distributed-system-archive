@@ -108,7 +108,7 @@ import DistributedABI
 @inline(never) func roundtrip(_ values: [Int]) throws -> [Int] {
     try values.map {
         var encoder: BufferEncoder = .init(preallocated: [])
-        try $0.encode(to: &encoder)
+        $0.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
@@ -116,7 +116,7 @@ import DistributedABI
 @inline(never) func roundtrip(_ values: [Int?]) throws -> [Int?] {
     try values.map {
         var encoder: BufferEncoder = .init(preallocated: [])
-        try $0.encode(to: &encoder)
+        $0.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
@@ -124,7 +124,7 @@ import DistributedABI
 @inline(never) func roundtrip(_ values: [String]) throws -> [String] {
     try values.map {
         var encoder: BufferEncoder = .init(preallocated: [])
-        try $0.encode(to: &encoder)
+        $0.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
@@ -132,7 +132,7 @@ import DistributedABI
 @inline(never) func roundtrip(_ values: [String?]) throws -> [String?] {
     try values.map {
         var encoder: BufferEncoder = .init(preallocated: [])
-        try $0.encode(to: &encoder)
+        $0.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
@@ -140,7 +140,7 @@ import DistributedABI
 @inline(never) func roundtrip(_ values: [[Int: [String: Int]]?]) throws -> [[Int: [String: Int]]?] {
     try values.map {
         var encoder: BufferEncoder = .init(preallocated: [])
-        try $0.encode(to: &encoder)
+        $0.encode(to: &encoder)
         var decoder: BufferDecoder = .init(encoder.output)
         return try .decode(from: &decoder)
     }
