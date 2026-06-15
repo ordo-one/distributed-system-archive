@@ -41,7 +41,7 @@ extension Substring {
     /// format uses. Computed through `UInt64` so the `>> 32` is well-defined on
     /// 32-bit platforms (the bytes emitted are identical on 64-bit). The header is
     /// written little-endian as the `low` `UInt32` followed by the `high` `UInt8`.
-    @usableFromInline static func header(size: Int) -> (high: UInt8, low: UInt32) {
+    @inlinable static func header(size: Int) -> (high: UInt8, low: UInt32) {
         // 1 TB ought to be enough for anyone.
         let size: UInt64 = .init(size)
         return (high: .init(size >> 32), low: .init(truncatingIfNeeded: size))
