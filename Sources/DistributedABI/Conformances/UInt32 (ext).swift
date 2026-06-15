@@ -1,1 +1,2 @@
-extension UInt32: TriviallyCopyable, Serializable, Deserializable, Transferable {}
+@available(*, deprecated) extension UInt32: TriviallyCopyable, Transferable {}
+extension UInt32: BufferEncodable, BufferDecodable {}

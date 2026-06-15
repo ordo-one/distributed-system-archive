@@ -1,35 +1,50 @@
 /// Defines protocol used to deserialize distributed function call arguments or result type
 /// **Important:** Protocol requirements is subject to change, API compatibility is not guaranteed at this moment of time
-public protocol Deserializable {
+@available(*, deprecated) public protocol Deserializable: BufferDecodable {
     /// Creates a new instance by decoding from the given buffer.
     /// - Parameter from: the buffer to read data from
     init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) throws
 
     func _releaseBuffer()
 }
-extension Deserializable where Self: BitwiseCopyable {
+@available(*, deprecated) extension Deserializable {
+    // forwards compatibility with new API
+    @available(
+        *, deprecated, message: """
+        modern deserialization API requires decoders to report the number of bytes consumed
+        """
+    ) public static func decode(
+        from input: inout BufferDecoder
+    ) throws -> Self {
+        defer { input.index = input.bytes.endIndex }
+        return try input.bytes[input.index...].withUnsafeBytes(self.init(fromSerializedBuffer:))
+    }
+}
+@available(*, deprecated) extension Deserializable where Self: BitwiseCopyable {
     @inlinable static func loadUnaligned(
         from buffer: UnsafeRawBufferPointer
-    ) throws(BufferDecodingError<Self>) -> Self {
+    ) throws(BufferDecodingError) -> Self {
         guard buffer.count == MemoryLayout<Self>.size else {
-            throw .size(buffer.count, expected: MemoryLayout<Self>.size)
+            throw .expected(.bytes(MemoryLayout<Self>.size), encountered: buffer.count)
         }
         return buffer.loadUnaligned(as: Self.self)
     }
 }
-extension Deserializable where Self: BinaryFloatingPoint & BitwiseCopyable {
+@available(*, deprecated) extension Deserializable
+    where Self: BinaryFloatingPoint & BitwiseCopyable {
     @inlinable public init(
         fromSerializedBuffer buffer: UnsafeRawBufferPointer
-    ) throws(BufferDecodingError<Self>) {
+    ) throws(BufferDecodingError) {
         self = try .loadUnaligned(from: buffer)
     }
 
     public func _releaseBuffer() {}
 }
-extension Deserializable where Self: BinaryInteger & BitwiseCopyable {
+@available(*, deprecated) extension Deserializable
+    where Self: BinaryInteger & BitwiseCopyable {
     @inlinable public init(
         fromSerializedBuffer buffer: UnsafeRawBufferPointer
-    ) throws(BufferDecodingError<Self>) {
+    ) throws(BufferDecodingError) {
         self = try .loadUnaligned(from: buffer)
     }
 

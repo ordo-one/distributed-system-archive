@@ -51,17 +51,104 @@ import Testing
             "",
             "Hi Barbie!",
             "¡Hola Barbie!",
+            "¡Hola\0Barbie!",
+            String.init(repeating: "abcdefghijklmnopqrstuvwxyz", count: 100),
         ]
     ) static func RoundtripString(_ value: String) throws {
         try Self.roundtrip(value)
         try Self.roundtrip(value as String?)
     }
+
+    @Test(
+        arguments: [
+            [],
+            [""],
+            ["", "a", "abc"],
+        ]
+    ) static func RoundtripArray(_ value: [String]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [String]?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [[]],
+            [[""]],
+            [[""], [""]],
+            [["", "a"], [], ["abc"]],
+        ]
+    ) static func RoundtripArrayNested(_ value: [[String]]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [[String]]?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [""],
+            ["", "a", "abc"],
+        ]
+    ) static func RoundtripSet(_ value: Set<String>) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as Set<String>?)
+    }
+
+    @Test(
+        arguments: [
+            [],
+            [[]],
+            [[""]],
+            [[""], [""]],
+            [["", "a"], [], ["abc"]],
+        ]
+    ) static func RoundtripSetOfSets(_ value: Set<Set<String>>) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as Set<Set<String>>?)
+    }
+
+    @Test(
+        arguments: [
+            [:],
+            ["": ""],
+            ["": "a"],
+            ["a": ""],
+            ["": "a", "a": "b", "abc": "def"],
+        ]
+    ) static func RoundtripDictionary(_ value: [String: String]) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [String: String]?)
+    }
+
+    @Test(
+        arguments: [
+            [:],
+            [[:]: [:]],
+            [["": ""]: ["": ""]],
+            [["a": "b"]: ["c": "d"]],
+            [["a": "b"]: ["c": "d"], ["x": "y"]: ["z": "w"]],
+        ]
+    ) static func RoundtripDictionaryOfDictionaries(
+        _ value: [[String: String]: [String: String]]
+    ) throws {
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as [[String: String]: [String: String]]?)
+    }
 }
 extension Roundtripping {
-    private static func reencode<T>(_ original: T) throws -> T where T: Serializable & Deserializable & Equatable {
-        try original.withUnsafeBytesSerialization(T.init(fromSerializedBuffer:))
+    private static func reencode<T>(
+        _ original: T
+    ) throws -> T where T: BufferEncodable & BufferDecodable & Equatable {
+        var encoder: BufferEncoder = .init(preallocated: [])
+        try original.encode(to: &encoder)
+        var decoder: BufferDecoder = .init(encoder.output)
+        let decoded: T = try .decode(from: &decoder)
+        try decoder.finish()
+        return decoded
     }
-    private static func roundtrip<T>(_ original: T) throws where T: Serializable & Deserializable & Equatable {
+    private static func roundtrip<T>(
+        _ original: T
+    ) throws where T: BufferEncodable & BufferDecodable & Equatable {
         #expect(try self.reencode(original) == original)
     }
 }

@@ -1,1 +1,2 @@
-extension Int8: TriviallyCopyable, Serializable, Deserializable, Transferable {}
+@available(*, deprecated) extension Int8: TriviallyCopyable, Transferable {}
+extension Int8: BufferEncodable, BufferDecodable {}

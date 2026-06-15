@@ -1,18 +1,39 @@
-extension String: Serializable {
-    public func withUnsafeBytesSerialization<Result>(_ body: (UnsafeRawBufferPointer) throws -> Result) rethrows -> Result {
-        try utf8CString.withUnsafeBufferPointer {
-            try body(.init(start: .init($0.baseAddress), count: $0.count - 1))
+@available(*, deprecated) extension String: Transferable {}
+extension String: BufferEncodable {
+    @inlinable public func encode(to output: inout BufferEncoder) {
+        self[...].encode(to: &output)
+    }
+}
+extension String: BufferDecodable {
+    @inlinable public static func decode(
+        from input: inout BufferDecoder
+    ) throws(BufferDecodingError) -> Self {
+        let format: BinaryFormat = try .decode(from: &input)
+        switch format {
+        case .compact:
+            return try .decode(compact: &input)
+        case .long:
+            return try .decode(long: &input)
+        case .none:
+            return ""
         }
     }
 }
-extension String: Deserializable {
-    public init(fromSerializedBuffer buffer: UnsafeRawBufferPointer) {
-        self = String(unsafeUninitializedCapacity: buffer.count) {
-            _ = $0.initialize(from: buffer)
-            return buffer.count
-        }
+extension String {
+    /// Parses a null-terminated string.
+    @inlinable static func decode(
+        compact input: inout BufferDecoder
+    ) throws(BufferDecodingError) -> Self {
+        try input.parse(through: 0x00) { .init(decoding: $0, as: Unicode.UTF8.self) }
     }
 
-    public func _releaseBuffer() {}
+    /// Parses a length-prefixed string.
+    @inlinable static func decode(
+        long input: inout BufferDecoder
+    ) throws(BufferDecodingError) -> Self {
+        let low: UInt32 = try .decode(from: &input)
+        let high: UInt8 = try .decode(from: &input)
+        let size: Int = Int.init(high) << 32 | Int.init(low)
+        return try input.parse(size: size) { .init(decoding: $0, as: Unicode.UTF8.self) }
+    }
 }
-extension String: Transferable {}

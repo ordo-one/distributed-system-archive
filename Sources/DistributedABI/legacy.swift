@@ -1,2 +1,4 @@
-public protocol Transferable: Serializable & Deserializable & Sendable {}
+@available(*, deprecated) public protocol Transferable: Sendable,
+    BufferEncodable,
+    BufferDecodable {}
 public protocol TriviallyCopyable {}
