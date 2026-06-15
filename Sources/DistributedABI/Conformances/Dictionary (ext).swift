@@ -18,7 +18,9 @@ extension Dictionary: BufferDecodable where Key: BufferDecodable, Value: BufferD
         from input: inout BufferDecoder
     ) throws(BufferDecodingError) -> Self {
         let header: CollectionHeader = try .decode(from: &input)
-        var fields: Self = .init(minimumCapacity: header.count)
+        //  Clamp the speculative reservation to the available bytes (see Array.decode).
+        //  A key/value pair needs at least two bytes, so `remaining` is a safe bound.
+        var fields: Self = .init(minimumCapacity: Swift.min(header.count, input.remaining))
         for i: Int in 0 ..< header.count {
             let field: Key
             let value: Value

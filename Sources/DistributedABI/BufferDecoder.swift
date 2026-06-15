@@ -64,15 +64,22 @@ extension BufferDecoder {
         with yield: (ArraySlice<UInt8>) -> T
     ) throws(BufferDecodingError) -> T {
         let start: Int = self.index
-        while self.index < self.bytes.endIndex {
-            defer {
-                self.bytes.formIndex(after: &self.index)
-            }
-            if  self.bytes[self.index] == byte {
-                return yield(self.bytes[start ..< self.index])
-            }
+        let lower: Int = self.bytes.startIndex
+        // scan over the unchecked buffer rather than the slice itself, to
+        // avoid per-byte bounds (and exclusivity) checks; `firstIndex(of:)`
+        // lowers to a vectorized memchr
+        let match: Int? = self.bytes.withUnsafeBufferPointer {
+            $0[(start - lower)...].firstIndex(of: byte).map { $0 + lower }
         }
-        throw .expected(.byte(byte), encountered: 0)
+
+        guard
+        let match: Int else {
+            self.index = self.bytes.endIndex
+            throw .expected(.byte(byte), encountered: 0)
+        }
+
+        self.index = match + 1
+        return yield(self.bytes[start ..< match])
     }
 
     /// Asserts that all available bytes have been consumed, throwing an error otherwise.
@@ -81,6 +88,15 @@ extension BufferDecoder {
         guard self.index == self.bytes.endIndex else {
             throw self.expected(.end)
         }
+    }
+}
+extension BufferDecoder {
+    /// The number of bytes remaining to be consumed from the input. Because every
+    /// encoded element occupies at least one byte on the wire, this is a safe upper
+    /// bound on the number of elements a (possibly hostile) length header can require,
+    /// and should be used to clamp speculative `reserveCapacity` calls.
+    @inlinable var remaining: Int {
+        self.bytes.distance(from: self.index, to: self.bytes.endIndex)
     }
 }
 extension BufferDecoder {

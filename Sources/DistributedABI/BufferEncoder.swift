@@ -1,9 +1,13 @@
 @frozen public struct BufferEncoder: ~Copyable, Sendable {
-    @usableFromInline var bytes: ArraySlice<UInt8>
+    @usableFromInline var bytes: [UInt8]
 
-    /// Create an output with a pre-allocated destination buffer. The buffer
-    /// does *not* need to be empty, and existing data will not be cleared.
-    @inlinable public init(preallocated bytes: ArraySlice<UInt8>) {
+    /// Create an output that takes ownership of a pre-allocated destination buffer,
+    /// without copying. The buffer does *not* need to be empty, and existing data
+    /// will not be cleared. This is the zero-copy entry point: pass a buffer whose
+    /// capacity you want to reuse (e.g. one reclaimed from a previous encoder via
+    /// ``storage`` after ``Swift/Array/removeAll(keepingCapacity:)``), and the
+    /// encoder appends in place with no reallocation while the buffer stays unique.
+    @inlinable public init(preallocated bytes: consuming [UInt8]) {
         self.bytes = bytes
     }
 
@@ -16,6 +20,13 @@
 }
 extension BufferEncoder {
     @inlinable public var output: ArraySlice<UInt8> {
+        consuming get { self.bytes[...] }
+    }
+    /// Consumes the encoder and returns its backing `[UInt8]` buffer directly,
+    /// with no copy. The returned array retains its full capacity, so it can be
+    /// cleared (`removeAll(keepingCapacity:)`) and handed back to
+    /// ``init(preallocated:)`` to reuse the allocation across many encodes.
+    @inlinable public var storage: [UInt8] {
         consuming get { self.bytes }
     }
 }

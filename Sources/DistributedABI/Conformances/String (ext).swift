@@ -5,7 +5,7 @@ extension String: BufferEncodable {
     }
 }
 extension String: BufferDecodable {
-    public static func decode(
+    @inlinable public static func decode(
         from input: inout BufferDecoder
     ) throws(BufferDecodingError) -> Self {
         let format: BinaryFormat = try .decode(from: &input)
@@ -21,14 +21,14 @@ extension String: BufferDecodable {
 }
 extension String {
     /// Parses a null-terminated string.
-    @usableFromInline static func decode(
+    @inlinable static func decode(
         compact input: inout BufferDecoder
     ) throws(BufferDecodingError) -> Self {
         try input.parse(through: 0x00) { .init(decoding: $0, as: Unicode.UTF8.self) }
     }
 
     /// Parses a length-prefixed string.
-    @usableFromInline static func decode(
+    @inlinable static func decode(
         long input: inout BufferDecoder
     ) throws(BufferDecodingError) -> Self {
         let low: UInt32 = try .decode(from: &input)

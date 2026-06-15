@@ -9,7 +9,9 @@ extension CollectionHeader: BufferEncodable {
         let count: Int = self.count
         let first: UInt8
 
-        if  count < 255 {
+        //  `UInt8.max` is reserved as the marker for the extended (full-width count)
+        //  header, so a single-byte count can only go up to `UInt8.max - 1`.
+        if  count < .init(UInt8.max) {
             first = .init(count)
             first.encode(to: &output)
         } else {
@@ -25,7 +27,13 @@ extension CollectionHeader: BufferDecodable {
     ) throws(BufferDecodingError) -> Self {
         let first: UInt8 = try .decode(from: &input)
         if  first == .max {
-            return .init(count: try .decode(from: &input))
+            let count: Int = try .decode(from: &input)
+            //  A negative count is never valid and would trap the `0 ..< count`
+            //  loops that consume collection elements; reject it up front.
+            guard count >= 0 else {
+                throw input.expected(.bytes(0))
+            }
+            return .init(count: count)
         } else {
             return .init(count: Int.init(first))
         }
