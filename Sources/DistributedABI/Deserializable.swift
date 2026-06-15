@@ -18,19 +18,26 @@
         at index: inout Int
     ) throws(BufferDecodingError) -> Self {
         //  Legacy semantics: consume the whole remaining buffer.
+        guard index >= 0, index <= input.byteCount else {
+            throw input.expected(.bytes(0), at: index)
+        }
         let start: Int = index
         let end: Int = input.byteCount
         index = end
         var result: Self? = nil
-        var failure: (any Error)? = nil
+        var failure: BufferDecodingError? = nil
         input.extracting(start ..< end).withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             do {
                 result = try Self.init(fromSerializedBuffer: raw)
-            } catch {
+            } catch let error as BufferDecodingError {
+                //  Surface a typed decoding error directly (matching the prior
+                //  behaviour) rather than re-wrapping it in `.arbitrary`.
                 failure = error
+            } catch {
+                failure = .arbitrary(error)
             }
         }
-        if let failure: any Error { throw .arbitrary(failure) }
+        if let failure: BufferDecodingError { throw failure }
         return result.unsafelyUnwrapped
     }
 }

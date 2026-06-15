@@ -9,7 +9,12 @@ extension Set: BufferDecodable where Element: BufferDecodable {
         //  Clamp the speculative reservation to the available bytes (see Array.decode).
         values.reserveCapacity(Swift.min(header.count, input.remaining(from: index)))
         for i: Int in 0 ..< header.count {
+            let before: Int = index
             let value: Element = try .decode(from: input, at: &index)
+            //  Forward-progress guard (see Array.decode): refuse a zero-byte element.
+            guard index > before else {
+                throw input.expected(.bytes(1), at: index)
+            }
             guard case (inserted: true, _) = values.insert(value) else {
                 throw .arbitrary(SetCollisionError<Element>.init(position: i))
             }

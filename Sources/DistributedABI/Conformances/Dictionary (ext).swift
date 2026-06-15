@@ -24,8 +24,13 @@ extension Dictionary: BufferDecodable where Key: BufferDecodable, Value: BufferD
         //  A key/value pair needs at least two bytes, so `remaining` is a safe bound.
         var fields: Self = .init(minimumCapacity: Swift.min(header.count, input.remaining(from: index)))
         for i: Int in 0 ..< header.count {
+            let before: Int = index
             let field: Key = try .decode(from: input, at: &index)
             let value: Value = try .decode(from: input, at: &index)
+            //  Forward-progress guard (see Array.decode): refuse a zero-byte pair.
+            guard index > before else {
+                throw input.expected(.bytes(1), at: index)
+            }
             switch fields.updateValue(value, forKey: field) {
             case nil:
                 continue

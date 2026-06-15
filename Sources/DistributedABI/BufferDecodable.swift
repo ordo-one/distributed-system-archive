@@ -47,7 +47,14 @@ extension BufferDecodable where Self: RangeReplaceableCollection, Element: Buffe
         //  allocation before any element has been read.
         values.reserveCapacity(Swift.min(header.count, input.remaining(from: index)))
         for _: Int in 0 ..< header.count {
+            let before: Int = index
             values.append(try Element.decode(from: input, at: &index))
+            //  Guarantee forward progress: every element must consume at least one
+            //  byte, otherwise a hostile 9-byte header could spin a client-supplied
+            //  zero-byte element conformance up to `Int.max` iterations.
+            guard index > before else {
+                throw input.expected(.bytes(1), at: index)
+            }
         }
         return values
     }
