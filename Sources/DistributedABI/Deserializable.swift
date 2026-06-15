@@ -14,10 +14,24 @@
         modern deserialization API requires decoders to report the number of bytes consumed
         """
     ) public static func decode(
-        from input: inout BufferDecoder
-    ) throws -> Self {
-        defer { input.index = input.bytes.endIndex }
-        return try input.bytes[input.index...].withUnsafeBytes(self.init(fromSerializedBuffer:))
+        from input: RawSpan,
+        at index: inout Int
+    ) throws(BufferDecodingError) -> Self {
+        //  Legacy semantics: consume the whole remaining buffer.
+        let start: Int = index
+        let end: Int = input.byteCount
+        index = end
+        var result: Self? = nil
+        var failure: (any Error)? = nil
+        input.extracting(start ..< end).withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            do {
+                result = try Self.init(fromSerializedBuffer: raw)
+            } catch {
+                failure = error
+            }
+        }
+        if let failure: any Error { throw .arbitrary(failure) }
+        return result.unsafelyUnwrapped
     }
 }
 @available(*, deprecated) extension Deserializable where Self: BitwiseCopyable {

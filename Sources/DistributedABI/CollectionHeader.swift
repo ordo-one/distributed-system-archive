@@ -5,33 +5,32 @@
     }
 }
 extension CollectionHeader: BufferEncodable {
-    @inlinable func encode(to output: inout BufferEncoder) {
-        let count: Int = self.count
-        let first: UInt8
-
+    @inlinable func encode(into output: inout OutputRawSpan) {
         //  `UInt8.max` is reserved as the marker for the extended (full-width count)
         //  header, so a single-byte count can only go up to `UInt8.max - 1`.
-        if  count < .init(UInt8.max) {
-            first = .init(count)
-            first.encode(to: &output)
+        if  self.count < Int.init(UInt8.max) {
+            output.append(UInt8.init(self.count))
         } else {
-            first = .max
-            first.encode(to: &output)
-            count.encode(to: &output)
+            output.append(UInt8.max)
+            self.count.encode(into: &output)
         }
+    }
+    @inlinable var encodedSize: Int {
+        self.count < Int.init(UInt8.max) ? 1 : 1 + MemoryLayout<Int>.size
     }
 }
 extension CollectionHeader: BufferDecodable {
     @inlinable static func decode(
-        from input: inout BufferDecoder
+        from input: RawSpan,
+        at index: inout Int
     ) throws(BufferDecodingError) -> Self {
-        let first: UInt8 = try .decode(from: &input)
+        let first: UInt8 = try input.parseByte(at: &index)
         if  first == .max {
-            let count: Int = try .decode(from: &input)
+            let count: Int = try .decode(from: input, at: &index)
             //  A negative count is never valid and would trap the `0 ..< count`
             //  loops that consume collection elements; reject it up front.
             guard count >= 0 else {
-                throw input.expected(.bytes(0))
+                throw input.expected(.bytes(0), at: index)
             }
             return .init(count: count)
         } else {

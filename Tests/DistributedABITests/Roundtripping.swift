@@ -139,12 +139,7 @@ extension Roundtripping {
     private static func reencode<T>(
         _ original: T
     ) throws -> T where T: BufferEncodable & BufferDecodable & Equatable {
-        var encoder: BufferEncoder = .init(preallocated: [])
-        try original.encode(to: &encoder)
-        var decoder: BufferDecoder = .init(encoder.output)
-        let decoded: T = try .decode(from: &decoder)
-        try decoder.finish()
-        return decoded
+        try T.decode(original.encoded())
     }
     private static func roundtrip<T>(
         _ original: T

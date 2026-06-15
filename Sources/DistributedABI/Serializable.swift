@@ -9,9 +9,13 @@
     ) rethrows -> Result
 }
 @available(*, deprecated) extension Serializable {
-    // forwards compatibility with new API
-    public func encode(to output: inout BufferEncoder) throws(SerializationError) {
-        self.withUnsafeBytesSerialization { output.append($0) }
+    // forwards compatibility with new API: copy the object's own serialized bytes
+    // straight into the reserved region.
+    public func encode(into output: inout OutputRawSpan) {
+        self.withUnsafeBytesSerialization { output.append(copying: $0) }
+    }
+    public var encodedSize: Int {
+        self.withUnsafeBytesSerialization { $0.count }
     }
 }
 @available(*, deprecated) extension Serializable

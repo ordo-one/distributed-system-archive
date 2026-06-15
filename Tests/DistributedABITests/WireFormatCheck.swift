@@ -25,15 +25,12 @@ import Testing
     }
     @Test static func LongRoundtrip() throws {
         let string: String = .init(repeating: "xyz\u{0}", count: 100)
-        var decoder: BufferDecoder = .init(Self.encode(string)[...])
-        let decoded: String = try .decode(from: &decoder)
+        let decoded: String = try .decode(Self.encode(string))
         #expect(decoded == string)
     }
 }
 extension WireFormatCheck {
     private static func encode(_ string: String) -> [UInt8] {
-        var encoder: BufferEncoder = .init(preallocated: [])
-        string.encode(to: &encoder)
-        return [UInt8].init(encoder.output)
+        string.encoded()
     }
 }
