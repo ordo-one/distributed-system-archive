@@ -16,7 +16,7 @@ extension RawSpan {
     /// (possibly hostile) length header can require, and is used to clamp
     /// speculative `reserveCapacity` calls.
     @inlinable func remaining(from index: Int) -> Int {
-        self.byteCount - index
+        Swift.max(0, self.byteCount - index)
     }
 
     @inlinable func expected(
@@ -45,7 +45,11 @@ extension RawSpan {
     ) throws(BufferDecodingError) -> T where T: FixedWidthInteger & BitwiseCopyable {
         let size: Int = MemoryLayout<T>.size
         let start: Int = index
-        guard start >= 0, start &+ size <= self.byteCount else {
+        //  `size <= byteCount - start` (rather than `start + size <= byteCount`) is
+        //  overflow-safe: `start >= 0` and `byteCount >= 0`, so the subtraction can
+        //  never wrap. A wrapping `start &+ size` near `Int.max` could otherwise
+        //  bypass the check and admit an out-of-bounds read.
+        guard start >= 0, size <= self.byteCount - start else {
             throw self.expected(.bytes(size), at: index)
         }
         let raw: T = self.unsafeLoadUnaligned(fromByteOffset: start, as: T.self)
@@ -61,7 +65,9 @@ extension RawSpan {
         with yield: (RawSpan) -> T
     ) throws(BufferDecodingError) -> T {
         let start: Int = index
-        guard size >= 0, start >= 0, start &+ size <= self.byteCount else {
+        //  Overflow-safe bound (see parseLittleEndian): with `size, start >= 0` the
+        //  subtraction cannot wrap, whereas `start &+ size` near `Int.max` could.
+        guard size >= 0, start >= 0, size <= self.byteCount - start else {
             throw self.expected(.bytes(size), at: index)
         }
         index = start &+ size
@@ -110,7 +116,7 @@ extension OutputRawSpan {
         self.withUnsafeMutableBytes {
             (dest: UnsafeMutableRawBufferPointer, initializedCount: inout Int) in
             precondition(
-                initializedCount + n <= dest.count,
+                n <= dest.count - initializedCount,
                 "encode wrote past the reserved region (encodedSize under-estimate)"
             )
             dest.baseAddress!.advanced(by: initializedCount)
