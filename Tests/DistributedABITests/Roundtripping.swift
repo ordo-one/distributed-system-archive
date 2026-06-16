@@ -134,6 +134,16 @@ import Testing
         try Self.roundtrip(value)
         try Self.roundtrip(value as [[String: String]: [String: String]]?)
     }
+
+    @Test(
+        arguments: [0, 1, 255, 256, 1000]
+    ) static func RoundtripVariableLengthBytes(
+        _ length: Int
+    ) throws {
+        let value: Roundtripping.VariableLengthBytes = .create(length: length)
+        try Self.roundtrip(value)
+        try Self.roundtrip(value as Roundtripping.VariableLengthBytes?)
+    }
 }
 extension Roundtripping {
     private static func reencode<T>(

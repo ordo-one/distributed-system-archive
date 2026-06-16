@@ -32,6 +32,14 @@ extension BufferDecoder {
     }
 }
 extension BufferDecoder {
+    /// Parse a variable-length message from the buffer, expecting a prefixed length header.
+    @inlinable public mutating func parse<T>(
+        with yield: (ArraySlice<UInt8>) -> T
+    ) throws(BufferDecodingError) -> T {
+        let header: CollectionHeader = try .decode(from: &self)
+        return try self.parse(size: header.count, with: yield)
+    }
+
     @inlinable public mutating func parse<T>(
         size: Int,
         with yield: (ArraySlice<UInt8>) -> T

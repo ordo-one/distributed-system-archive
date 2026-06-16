@@ -46,3 +46,10 @@ extension BufferEncoder {
         self.bytes.append(contentsOf: bytes)
     }
 }
+extension BufferEncoder {
+    /// Write a variable-length payload to the buffer, prefixing it with a length header.
+    @inlinable public mutating func write(prefixing bytes: some Collection<UInt8>) {
+        CollectionHeader.init(count: bytes.count).encode(to: &self)
+        self.append(bytes)
+    }
+}
