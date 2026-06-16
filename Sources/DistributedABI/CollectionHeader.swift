@@ -31,7 +31,7 @@ extension CollectionHeader: BufferDecodable {
             //  A negative count is never valid and would trap the `0 ..< count`
             //  loops that consume collection elements; reject it up front.
             guard count >= 0 else {
-                throw input.expected(.bytes(0))
+                throw .arbitrary(CollectionHeaderError.count(count))
             }
             return .init(count: count)
         } else {
