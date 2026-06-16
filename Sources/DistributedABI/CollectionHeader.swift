@@ -6,7 +6,7 @@
 }
 extension CollectionHeader {
     @inlinable var hint: Int {
-        self.count + (self.count < 0x100 ? 1 : 1 + MemoryLayout<Int>.size)
+        self.count + (self.count < 0xff ? 1 : 1 + MemoryLayout<Int>.size)
     }
 }
 extension CollectionHeader: BufferEncodable {
