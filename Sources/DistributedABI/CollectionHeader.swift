@@ -4,6 +4,11 @@
         self.count = count
     }
 }
+extension CollectionHeader {
+    @inlinable var hint: Int {
+        self.count + (self.count < 0x100 ? 1 : 1 + MemoryLayout<Int>.size)
+    }
+}
 extension CollectionHeader: BufferEncodable {
     @inlinable func encode(to output: inout BufferEncoder) {
         let count: Int = self.count
