@@ -1,5 +1,5 @@
 extension BufferDecodingError {
-    @frozen public enum Expectation: Sendable {
+    @frozen @usableFromInline enum Expectation: Sendable {
         /// The input should have yielded end-of-input.
         case end
         /// The input should have yielded a terminator byte that never appeared.
@@ -9,7 +9,7 @@ extension BufferDecodingError {
     }
 }
 extension BufferDecodingError.Expectation: CustomStringConvertible {
-    public var description: String {
+    @usableFromInline var description: String {
         switch self {
         case .end:
             "end-of-input"
