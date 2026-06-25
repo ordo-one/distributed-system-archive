@@ -1,4 +1,4 @@
-public protocol BufferDecodable {
+public protocol BufferDecodable<DeserializationError> {
     associatedtype DeserializationError: Error
     static func decode(from input: inout BufferDecoder) throws(DeserializationError) -> Self
 }

@@ -1,4 +1,4 @@
-public protocol BufferEncodable {
+public protocol BufferEncodable<SerializationError> {
     associatedtype SerializationError: Error
     func encode(to output: inout BufferEncoder) throws(SerializationError)
 }
