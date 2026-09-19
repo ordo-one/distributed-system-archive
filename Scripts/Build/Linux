@@ -8,6 +8,7 @@ MODULE_NAME=DistributedABI
 OUTPUT_NAME=${LIBRARY_NAME}-Linux.xcframework
 
 swift build -c release \
+    --build-system native \
     --explicit-target-dependency-import-check=error \
     --experimental-xcframeworks-on-linux \
     --product ${LIBRARY_NAME}
