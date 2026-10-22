@@ -41,6 +41,7 @@ import Testing
             (["a", nil] as [String?], [2, 2, 1, 0x61, 1, 0]),
             ([[1], []] as [[UInt8]], [2, 2, 1, 1, 1, 0]),
             ([5] as Set<UInt8>, [1, 5]),
+            (["ab"] as Set<String>, [1, 2, 0x61, 0x62]),
             ([7: "x"] as [UInt8: String], [1, 7, 1, 0x78]),
             (["k": 3] as [String: UInt16], [1, 1, 0x6b, 3, 0]),
             // the count is ULEB128: one byte up to 127, two up to 16,383
