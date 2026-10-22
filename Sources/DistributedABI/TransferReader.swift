@@ -105,7 +105,7 @@ extension TransferReader {
     /// A ULEB128 number in canonical form: one that ends early, runs past 64 bits, carries a
     /// redundant final zero byte, or exceeds `Int.max` is refused. A number below 128, which
     /// is every length and count up to 127, takes one byte and is read inline.
-    @inlinable @inline(__always) mutating func takeULEB128() throws(TransferError) -> Int {
+    @inlinable @inline(always) mutating func takeULEB128() throws(TransferError) -> Int {
         if  self.index < self.bytes.byteCount {
             let byte: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
             if  byte < 0x80 {

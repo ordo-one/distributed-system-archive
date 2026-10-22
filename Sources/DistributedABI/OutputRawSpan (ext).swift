@@ -21,7 +21,7 @@ extension OutputRawSpan {
 
     /// Appends `value` as a ULEB128 number. A number below 128 takes one byte and is written
     /// inline.
-    @inlinable @inline(__always) public mutating func append(uleb128 value: UInt) {
+    @inlinable @inline(always) public mutating func append(uleb128 value: UInt) {
         if  value < 0x80 {
             self.append(UInt8.init(truncatingIfNeeded: value))
         } else {
@@ -30,7 +30,9 @@ extension OutputRawSpan {
     }
 
     // emitted into the client, so a number of 128 or more is a direct call rather than one
-    // through the framework’s symbol stub, and kept out of line, away from every caller
+    // through the framework’s symbol stub, and kept out of line, away from every caller;
+    // `@inlinable @inline(never)` was measured and still called through the stub, since a
+    // non-generic body that is not inlined runs the library’s own copy
     @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func append(multibyte value: UInt) {
         var value: UInt = value
         while true {
