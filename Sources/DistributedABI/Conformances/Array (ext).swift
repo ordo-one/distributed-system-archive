@@ -1,7 +1,7 @@
 extension Array: Transferable where Element: Transferable {
     /// An array travels as a ULEB128 count, then its elements: packed when their type has a
     /// fixed size, and each preceded by its ULEB128 length otherwise.
-    @inlinable public var transferSize: Int { self.elementsTransferSize }
+    @inlinable public var transferSize: Int { self.span.elementsTransferSize }
 
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         output.append(uleb128: UInt.init(self.count))

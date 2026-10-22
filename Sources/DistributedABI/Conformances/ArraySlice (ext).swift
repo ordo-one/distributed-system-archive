@@ -1,6 +1,6 @@
 extension ArraySlice: Transferable where Element: Transferable {
     /// A slice travels exactly as an ``Swift/Array`` with the same elements.
-    @inlinable public var transferSize: Int { self.elementsTransferSize }
+    @inlinable public var transferSize: Int { self.span.elementsTransferSize }
 
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         output.append(uleb128: UInt.init(self.count))
