@@ -2,8 +2,8 @@ import DistributedABI
 import Testing
 
 @Suite enum HostileInput {
-    /// Malformed and hostile bytes are refused with an error, never a trap, and a count never
-    /// reserves memory beyond the bytes present.
+    /// Malformed and hostile bytes are refused with an error, never a trap, and a count or
+    /// length the bytes present could not hold is refused before anything is reserved.
     @Test(
         arguments: [
             // too few bytes for a fixed-size value

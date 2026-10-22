@@ -51,7 +51,7 @@ struct Quote: Transferable {
 }
 ```
 
-The reader is a borrowed cursor. It is `~Escapable`, so neither the reader nor the spans it hands out can outlive the buffer they read, and the compiler refuses code that tries; a value that keeps bytes copies them. Running out of bytes, meeting a malformed number, or finding a discriminant out of range throws a `TransferError` instead of trapping, and a count is checked against the bytes present before anything is reserved, so hostile input cannot make a reader allocate more than it was sent.
+The reader is a borrowed cursor. It is `~Escapable`, so neither the reader nor the spans it hands out can outlive the buffer they read, and the compiler refuses code that tries; a value that keeps bytes copies them. Running out of bytes, meeting a malformed number, or finding a discriminant out of range throws a `TransferError` instead of trapping, and a count or length that the bytes remaining could not hold is refused before anything is reserved: every element takes at least one byte on the wire, and its fixed size when its type has one. That bounds the number of elements a reader reserves room for, not the memory they take once decoded, which for strings and collections can exceed their bytes on the wire.
 
 
 ## How a contiguous type gets its defaults

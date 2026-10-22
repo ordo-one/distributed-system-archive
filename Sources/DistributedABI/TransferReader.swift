@@ -47,7 +47,8 @@ extension TransferReader {
     }
 
     /// A ULEB128 count of elements, refused when it exceeds the bytes remaining: every element
-    /// takes at least one byte, so a hostile count never reserves more than the bytes present.
+    /// takes at least one byte, so a hostile count never reserves room for more elements than
+    /// the bytes present could hold.
     @inlinable public mutating func takeCount() throws(TransferError) -> Int {
         let count: Int = try self.takeULEB128()
         guard count <= self.remaining else {
