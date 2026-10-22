@@ -38,6 +38,20 @@ import Testing
             Hostile.init("dictionary count of Int.max", Self.intMax, as: [UInt8: UInt8].self, .count(.max, remaining: 0)),
             Hostile.init("dictionary count past end", [2, 1, 1], as: [UInt8: UInt8].self, .count(2, remaining: 2)),
             Hostile.init("set count of Int.max", Self.intMax, as: Set<UInt8>.self, .count(.max, remaining: 0)),
+            // counts within the bytes present, but not at the width of a fixed-size element
+            Hostile.init("wide set count past end", [2] + .init(repeating: 0, count: 9), as: Set<UInt64>.self, .count(2, remaining: 9)),
+            Hostile.init(
+                "wide dictionary count past end",
+                [2] + .init(repeating: 0, count: 17),
+                as: [UInt64: UInt64].self,
+                .count(2, remaining: 17)
+            ),
+            Hostile.init(
+                "wide key count past end",
+                [2] + .init(repeating: 0, count: 10),
+                as: [UInt64: String].self,
+                .count(2, remaining: 10)
+            ),
             // malformed ULEB128
             Hostile.init(
                 "count over Int.max",

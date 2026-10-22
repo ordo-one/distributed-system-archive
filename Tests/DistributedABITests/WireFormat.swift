@@ -64,6 +64,66 @@ import Testing
         try Self.check(value, expected)
     }
 
+    /// Every standard conformance states the fixed size its wire form has, or none, and an
+    /// array packs its elements behind the count exactly when the size is fixed. The sizes
+    /// and the bytes are written out, so a conformance that loses or gains a fixed size
+    /// fails here even though it still round-trips.
+    @Test(
+        arguments: [
+            // integers: their width, little-endian
+            Packing.init([1, -2] as [Int], fixed: 8, [2, 1, 0, 0, 0, 0, 0, 0, 0] + [0xfe] + .init(repeating: 0xff, count: 7)),
+            Packing.init([1, -2] as [Int8], fixed: 1, [2, 1, 0xfe]),
+            Packing.init([0x0102, -2] as [Int16], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
+            Packing.init([0x0102_0304, -2] as [Int32], fixed: 4, [2, 4, 3, 2, 1, 0xfe, 0xff, 0xff, 0xff]),
+            Packing.init(
+                [0x0102_0304_0506_0708, -2] as [Int64],
+                fixed: 8,
+                [2, 8, 7, 6, 5, 4, 3, 2, 1, 0xfe] + .init(repeating: 0xff, count: 7)
+            ),
+            Packing.init(
+                [1, -2] as [Int128],
+                fixed: 16,
+                [2, 1] + .init(repeating: 0, count: 15) + [0xfe] + .init(repeating: 0xff, count: 15)
+            ),
+            Packing.init([1, .max] as [UInt], fixed: 8, [2, 1, 0, 0, 0, 0, 0, 0, 0] + .init(repeating: 0xff, count: 8)),
+            Packing.init([1, 0xff] as [UInt8], fixed: 1, [2, 1, 0xff]),
+            Packing.init([0x0102, 0xfffe] as [UInt16], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
+            Packing.init([0x0102_0304, 0xdead_beef] as [UInt32], fixed: 4, [2, 4, 3, 2, 1, 0xef, 0xbe, 0xad, 0xde]),
+            Packing.init([0x0102_0304_0506_0708, 1] as [UInt64], fixed: 8, [2, 8, 7, 6, 5, 4, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
+            Packing.init(
+                [1, 1 << 64] as [UInt128],
+                fixed: 16,
+                [2, 1] + .init(repeating: 0, count: 23) + [1] + .init(repeating: 0, count: 7)
+            ),
+            // one byte, 0 or 1
+            Packing.init([true, false], fixed: 1, [2, 1, 0]),
+            // the bit pattern, little-endian
+            Packing.init([1, -2] as [Float], fixed: 4, [2, 0, 0, 0x80, 0x3f, 0, 0, 0, 0xc0]),
+            Packing.init([1, -2] as [Double], fixed: 8, [2, 0, 0, 0, 0, 0, 0, 0xf0, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0xc0]),
+            // an integer raw value: the size of the raw value
+            Packing.init([.sell, .buy] as [Side], fixed: 1, [2, 0xff, 1]),
+            Packing.init([.primary, .dark] as [Venue], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
+            // no fixed size: each element behind its ULEB128 length
+            Packing.init(["a", ""] as [String], fixed: nil, [2, 1, 0x61, 0]),
+            Packing.init(["a"] as [Substring], fixed: nil, [1, 1, 0x61]),
+            Packing.init([7, nil] as [UInt8?], fixed: nil, [2, 2, 1, 7, 1, 0]),
+            Packing.init([[1], []] as [[UInt8]], fixed: nil, [2, 2, 1, 1, 1, 0]),
+            Packing.init([[1][...]] as [ArraySlice<UInt8>], fixed: nil, [1, 2, 1, 1]),
+            Packing.init([[5]] as [Set<UInt8>], fixed: nil, [1, 2, 1, 5]),
+            Packing.init([[1: 2]] as [[UInt8: UInt8]], fixed: nil, [1, 3, 1, 1, 2]),
+            // deliberately none, even when both payloads have the same fixed size
+            Packing.init(
+                [.success(9), .failure(.init(code: 2))] as [Result<UInt8, Failure>],
+                fixed: nil,
+                [2, 2, 0, 9, 5, 1, 2, 0, 0, 0]
+            ),
+        ]
+    ) static func FixedSizes(_ packing: Packing) throws {
+        #expect(packing.stated == packing.expected)
+        #expect(packing.write() == packing.golden)
+        #expect(try packing.read(packing.golden))
+    }
+
     @Test(
         arguments: [
             (0, [0]),
