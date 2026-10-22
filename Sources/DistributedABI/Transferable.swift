@@ -72,8 +72,8 @@ extension Transferable where Self: RawRepresentable, RawValue: Transferable & Fi
         let value: Self = .init(rawValue: rawValue) else {
             // the raw value’s bits as they were on the wire, so a negative `Int8` reads as
             // the byte it was sent as
-            let bits: UInt64 = .init(truncatingIfNeeded: rawValue)
-            let mask: UInt64 = RawValue.bitWidth < 64 ? (1 << RawValue.bitWidth) - 1 : .max
+            let bits: UInt128 = .init(truncatingIfNeeded: rawValue)
+            let mask: UInt128 = RawValue.bitWidth < 128 ? (1 << RawValue.bitWidth) - 1 : .max
             throw .init(.discriminant(bits & mask))
         }
         self = value

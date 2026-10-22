@@ -9,8 +9,9 @@ extension TransferError {
         /// or over `Int.max`), which reports a count of -1.
         case count(Int, remaining: Int)
         /// A `Bool`, `Optional` or `Result` discriminant byte out of range, or an integer raw
-        /// value with no case, as the unsigned number its bits form on the wire.
-        case discriminant(UInt64)
+        /// value with no case, as the unsigned number its bits form on the wire: all of them
+        /// for every standard integer, and the low 128 for a wider one.
+        case discriminant(UInt128)
         /// A `Set` element or `Dictionary` key that repeats an earlier one, at this position.
         case duplicate(Int)
         /// A conformer’s own error, carried unchanged.

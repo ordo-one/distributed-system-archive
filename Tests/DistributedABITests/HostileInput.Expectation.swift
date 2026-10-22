@@ -5,7 +5,7 @@ extension HostileInput {
     enum Expectation: Equatable, Sendable {
         case expected(Int, encountered: Int)
         case count(Int, remaining: Int)
-        case discriminant(UInt64)
+        case discriminant(UInt128)
         case duplicate(Int)
         case payload
     }

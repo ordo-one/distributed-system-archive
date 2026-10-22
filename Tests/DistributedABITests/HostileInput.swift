@@ -16,6 +16,18 @@ import Testing
             Hostile.init("result", [7, 1], as: Result<UInt8, Failure>.self, .discriminant(7)),
             Hostile.init("signed raw value", [0x80], as: Side.self, .discriminant(0x80)),
             Hostile.init("wide raw value", [0, 0], as: Venue.self, .discriminant(0)),
+            Hostile.init(
+                "128-bit raw value past 64 bits",
+                .init(repeating: 0, count: 8) + [1] + .init(repeating: 0, count: 7),
+                as: Wide.self,
+                .discriminant(1 << 64)
+            ),
+            Hostile.init(
+                "negative 128-bit raw value",
+                .init(repeating: 0xff, count: 16),
+                as: WideSigned.self,
+                .discriminant(.max)
+            ),
             // counts and lengths past the end
             Hostile.init("count past end", [5, 1, 2], as: [UInt8].self, .count(5, remaining: 2)),
             Hostile.init("packed count past end", [2] + .init(repeating: 0, count: 9), as: [Int].self, .count(2, remaining: 9)),
