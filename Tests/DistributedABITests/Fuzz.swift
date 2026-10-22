@@ -6,9 +6,17 @@ import Testing
 ///
 /// A quick run takes a few thousand iterations per type. A long run, for a nightly job, sets
 /// `DISTRIBUTED_ABI_FUZZ_ITERATIONS` to the number of iterations per type and draws a random
-/// seed unless `DISTRIBUTED_ABI_FUZZ_SEED` gives one. Every failure states the seed of its
-/// iteration, and `DISTRIBUTED_ABI_FUZZ_SEED=<seed> DISTRIBUTED_ABI_FUZZ_ITERATIONS=1` replays
-/// exactly that iteration.
+/// seed unless `DISTRIBUTED_ABI_FUZZ_SEED` gives one. Every failure states its iteration, the
+/// seed that replays it as `DISTRIBUTED_ABI_FUZZ_SEED=<seed> DISTRIBUTED_ABI_FUZZ_ITERATIONS=1`,
+/// and every byte of its input. A trap ends the process before the test can report it, so a
+/// long run keeps the iteration in progress in a file it names as it starts; a trap in a quick
+/// run recurs in a long run of 2,000 iterations from the quick run’s seed, 0x0123456789abcdef.
+///
+/// A set or a dictionary writes its elements in its iteration order, which differs from one
+/// process to the next, so the truncations and mutations start from the valid encoding with
+/// the elements of every set and the entries of every dictionary in the order of their bytes,
+/// and a seed replays the same bytes in any process. A round trip from a replayed seed writes
+/// the same value, in an order that may differ, which is why its failure keeps the bytes.
 @Suite enum Fuzz {
     /// A random value writes exactly the bytes it states into a buffer of that size, and reads
     /// back as the same value from all of them.
@@ -84,21 +92,25 @@ extension Fuzz {
 }
 extension Fuzz {
     private static func randomValues<Value>(_: Value.Type) where Value: Fuzzable {
-        let run: Run = .init(Value.self)
+        let run: Run = .init(Value.self, test: "RandomValues")
+        defer {
+            run.finish()
+        }
         for i: UInt64 in 0 ..< run.iterations {
-            let seed: UInt64 = run.seed &+ i
-            var random: SplitMix64 = .init(seed: seed)
+            run.start(i)
+            var random: SplitMix64 = .init(seed: run.seed(i))
             var budget: Int = Self.budget
             let value: Value = .random(using: &random, budget: &budget)
             let bytes: [UInt8] = .init(transferring: value)
             let failure: String?
             if  bytes.count != value.transferSize {
-                failure = "wrote \(bytes.count) bytes, but states \(value.transferSize)"
+                let stated: Int = value.transferSize
+                failure = "wrote \(bytes.count) bytes \(Self.hex(bytes)), but states \(stated)"
             } else {
                 failure = Self.reading(Value.self, value, from: bytes)
             }
             if  let failure: String {
-                Issue.record("\(run.failure(seed: seed)): \(Self.describe(value)): \(failure)")
+                Issue.record("\(run.failure(i)): \(Self.describe(value)): \(failure)")
                 return
             }
         }
@@ -127,10 +139,13 @@ extension Fuzz {
 }
 extension Fuzz {
     private static func malformedBytes<Value>(_: Value.Type) where Value: Fuzzable {
-        let run: Run = .init(Value.self)
+        let run: Run = .init(Value.self, test: "MalformedBytes")
+        defer {
+            run.finish()
+        }
         for i: UInt64 in 0 ..< run.iterations {
-            let seed: UInt64 = run.seed &+ i
-            var random: SplitMix64 = .init(seed: seed)
+            run.start(i)
+            var random: SplitMix64 = .init(seed: run.seed(i))
 
             let count: Int = Int.random(in: 0 ..< 8, using: &random) == 0
                 ? .random(in: 0 ... 64, using: &random)
@@ -142,7 +157,15 @@ extension Fuzz {
 
             var budget: Int = Self.budget
             let value: Value = .random(using: &random, budget: &budget)
-            let valid: [UInt8] = .init(transferring: value)
+            let written: [UInt8] = .init(transferring: value)
+            guard
+            let valid: [UInt8] = Value.shape.canonical(written) else {
+                let bytes: String = Self.hex(written)
+                Issue.record(
+                    "\(run.failure(i)): \(Self.describe(value)) wrote \(bytes), not of its shape"
+                )
+                return
+            }
             var truncated: [UInt8] = []
             var mutated: [UInt8] = []
             if !valid.isEmpty {
@@ -160,9 +183,7 @@ extension Fuzz {
                     ("mutated", mutated),
                 ] {
                 if  let failure: String = Self.decoding(Value.self, from: bytes) {
-                    Issue.record(
-                        "\(run.failure(seed: seed)): \(kind) \(Self.hex(bytes)): \(failure)"
-                    )
+                    Issue.record("\(run.failure(i)): \(kind) \(Self.hex(bytes)): \(failure)")
                     return
                 }
             }
@@ -210,10 +231,11 @@ extension Fuzz {
         return description.count > 200 ? "\(description.prefix(200))…" : description
     }
 
+    /// Every byte, so that a failure carries the whole of the input that reproduces it.
     private static func hex(_ bytes: [UInt8]) -> String {
-        let shown: String = bytes.prefix(96).map {
+        let digits: String = bytes.map {
             $0 < 0x10 ? "0\(String.init($0, radix: 16))" : String.init($0, radix: 16)
         }.joined()
-        return bytes.count > 96 ? "[\(shown)… (\(bytes.count) bytes)]" : "[\(shown)]"
+        return "[\(digits)]"
     }
 }
