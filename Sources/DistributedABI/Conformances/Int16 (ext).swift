@@ -1,2 +1,1 @@
-@available(*, deprecated) extension Int16: TriviallyCopyable, Transferable {}
-extension Int16: BufferEncodable, BufferDecodable {}
+extension Int16: Transferable {}

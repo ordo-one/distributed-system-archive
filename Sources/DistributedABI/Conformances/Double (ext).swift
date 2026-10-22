@@ -1,13 +1,12 @@
-@available(*, deprecated) extension Double: TriviallyCopyable, Transferable {}
-extension Double: BufferEncodable {
-    @inlinable public func encode(to output: inout BufferEncoder) {
-        self.bitPattern.encode(to: &output)
+extension Double: Transferable {
+    /// A `Double` travels as its bit pattern, little-endian, so every NaN payload survives.
+    @inlinable public static var fixedTransferSize: Int? { 8 }
+    @inlinable public var transferSize: Int { 8 }
+
+    @inlinable public func transfer(into output: inout OutputRawSpan) {
+        output.append(littleEndian: self.bitPattern)
     }
-}
-extension Double: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        .init(bitPattern: try .decode(from: &input))
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(bitPattern: try input.take(UInt64.self))
     }
 }

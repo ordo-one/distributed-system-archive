@@ -1,49 +1,29 @@
-extension Dictionary: BufferEncodable where
-    Key: BufferEncodable,
-    Value: BufferEncodable,
-    Value.SerializationError == Key.SerializationError {
-    @inlinable public func encode(
-        to output: inout BufferEncoder
-    ) throws(Value.SerializationError) {
-        self.header.encode(to: &output)
-
-        for (field, value): (Key, Value) in self {
-            try field.encode(to: &output)
-            try value.encode(to: &output)
+extension Dictionary: Transferable where Key: Transferable, Value: Transferable {
+    /// A dictionary travels as a ULEB128 count, then each key followed by its value, in
+    /// iteration order; each is preceded by its ULEB128 length unless its type has a fixed
+    /// size. A key that repeats an earlier one is a ``TransferError/Kind/duplicate(_:)`` error.
+    @inlinable public var transferSize: Int {
+        self.reduce(ULEB128.size(UInt.init(self.count))) {
+            $0 + $1.key.framedTransferSize + $1.value.framedTransferSize
         }
     }
-}
-extension Dictionary: BufferDecodable where Key: BufferDecodable, Value: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        let header: CollectionHeader = try .decode(from: &input)
-        //  Clamp the speculative reservation to the available bytes (see Array.decode).
-        //  A key/value pair needs at least two bytes, so `remaining` is a safe bound.
-        var fields: Self = .init(minimumCapacity: Swift.min(header.count, input.remaining))
-        for i: Int in 0 ..< header.count {
-            let field: Key
-            let value: Value
-            do {
-                field = try .decode(from: &input)
-                value = try .decode(from: &input)
-            } catch let error as BufferDecodingError {
-                throw error
-            } catch {
-                throw .arbitrary(error)
-            }
-            switch fields.updateValue(value, forKey: field) {
-            case nil:
-                continue
-            case _?:
-                // i wish that we could store information about the offending key-value pair
-                // here, but that would run afoul of Swift concurrency checking. additionally,
-                // it would make the conditional conformance a mouthful to spell (and
-                // understand), even if that were to compile, which it won’t
-                throw .arbitrary(DictionaryCollisionError<Key, Value>.init(position: i))
+
+    @inlinable public func transfer(into output: inout OutputRawSpan) {
+        output.append(uleb128: UInt.init(self.count))
+        for (key, value): (Key, Value) in self {
+            output.append(framed: key)
+            output.append(framed: value)
+        }
+    }
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        let count: Int = try input.takeCount()
+        self.init(minimumCapacity: count)
+        for i: Int in 0 ..< count {
+            let key: Key = try input.take(framed: Key.self)
+            let value: Value = try input.take(framed: Value.self)
+            guard case nil = self.updateValue(value, forKey: key) else {
+                throw .init(.duplicate(i))
             }
         }
-
-        return fields
     }
 }

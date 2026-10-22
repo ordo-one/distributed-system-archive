@@ -1,27 +1,18 @@
-extension Set: BufferEncodable where Element: BufferEncodable {}
-extension Set: BufferDecodable where Element: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        let header: CollectionHeader = try .decode(from: &input)
-        var values: Self = []
-        //  Clamp the speculative reservation to the available bytes (see Array.decode).
-        values.reserveCapacity(Swift.min(header.count, input.remaining))
-        for i: Int in 0 ..< header.count {
-            let value: Element
-            do {
-                value = try .decode(from: &input)
-            } catch let error as BufferDecodingError {
-                throw error
-            } catch {
-                throw .arbitrary(error)
-            }
+extension Set: Transferable where Element: Transferable {
+    /// A set travels as an ``Swift/Array`` of its elements in iteration order; an element that
+    /// repeats an earlier one is a ``TransferError/Kind/duplicate(_:)`` error.
+    @inlinable public var transferSize: Int { self.elementsTransferSize }
 
-            guard case (inserted: true, _) = values.insert(value) else {
-                throw .arbitrary(SetCollisionError<Element>.init(position: i))
+    @inlinable public func transfer(into output: inout OutputRawSpan) {
+        self.transferElements(into: &output)
+    }
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        let count: Int = try input.takeCount(of: Element.self)
+        self.init(minimumCapacity: count)
+        for i: Int in 0 ..< count {
+            guard case (inserted: true, _) = self.insert(try input.take(framed: Element.self)) else {
+                throw .init(.duplicate(i))
             }
         }
-
-        return values
     }
 }

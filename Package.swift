@@ -22,6 +22,8 @@ let package: Package = .init(
         .target(
             name: "DistributedABI",
             swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .strictMemorySafety(),
                 .unsafeFlags(["-enable-library-evolution", "-emit-module-interface"]),
             ]
         ),

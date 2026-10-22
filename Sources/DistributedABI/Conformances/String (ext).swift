@@ -1,39 +1,20 @@
-@available(*, deprecated) extension String: Transferable {}
-extension String: BufferEncodable {
-    @inlinable public func encode(to output: inout BufferEncoder) {
-        self[...].encode(to: &output)
-    }
-}
-extension String: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        let format: BinaryFormat = try .decode(from: &input)
-        switch format {
-        case .compact:
-            return try .decode(compact: &input)
-        case .long:
-            return try .decode(long: &input)
-        case .none:
-            return ""
-        }
-    }
-}
-extension String {
-    /// Parses a null-terminated string.
-    @inlinable static func decode(
-        compact input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        try input.parse(through: 0x00) { .init(decoding: $0, as: Unicode.UTF8.self) }
-    }
+extension String: Transferable {
+    /// A string travels as its UTF-8 bytes as they are, with no terminator: its container
+    /// frames the length. The bytes are lent with no allocation.
+    @inlinable public var transferSize: Int { self.utf8.count }
 
-    /// Parses a length-prefixed string.
-    @inlinable static func decode(
-        long input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        let low: UInt32 = try .decode(from: &input)
-        let high: UInt8 = try .decode(from: &input)
-        let size: Int = Int.init(high) << 32 | Int.init(low)
-        return try input.parse(size: size) { .init(decoding: $0, as: Unicode.UTF8.self) }
+    @inlinable public func transfer(into output: inout OutputRawSpan) {
+        output.append(bytes: self.utf8Span.span.bytes)
+    }
+    /// Reads every remaining byte; bytes that are not valid UTF-8 are refused with the
+    /// standard library’s validation error as the payload.
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        let utf8: UTF8Span
+        do {
+            utf8 = try .init(validating: .init(viewing: input.takeRemaining()))
+        } catch {
+            throw .payload(error)
+        }
+        self.init(copying: utf8)
     }
 }
