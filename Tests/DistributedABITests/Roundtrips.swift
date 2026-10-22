@@ -1,5 +1,8 @@
 import DistributedABI
 import Testing
+#if _runtime(_ObjC)
+import Foundation
+#endif
 
 @Suite enum Roundtrips {
     @Test(arguments: Self.integers) static func Integers(
@@ -65,6 +68,24 @@ import Testing
     ) static func Strings(_ value: any Transferable & Equatable) throws {
         try Self.roundtrip(value)
     }
+
+    #if _runtime(_ObjC)
+    /// A string bridged from an `NSString` whose storage is UTF-16 is transcoded on the way,
+    /// and must take the same bytes as the native string with the same contents; so must a
+    /// substring of it.
+    @Test(arguments: [1, 16, 100_000]) static func BridgedStrings(_ count: Int) throws {
+        let native: String = .init(repeating: "é", count: count)
+        let string: String = try Self.bridged(native)
+        try #require(!string.isContiguousUTF8)
+        #expect([UInt8].init(transferring: string) == .init(native.utf8))
+        try Self.roundtrip(string)
+
+        let suffix: Substring = string.suffix(1)
+        try #require(!suffix.isContiguousUTF8)
+        #expect([UInt8].init(transferring: suffix) == [0xc3, 0xa9])
+        try Self.roundtrip(suffix)
+    }
+    #endif
 
     @Test(
         arguments: [
@@ -157,6 +178,20 @@ extension Roundtrips {
         ]
         return values
     }
+
+    #if _runtime(_ObjC)
+    /// The same contents as `native`, bridged lazily from an `NSString` that stores them as
+    /// UTF-16.
+    private static func bridged(_ native: String) throws -> String {
+        let bytes: [UInt8] = native.utf16.flatMap {
+            [UInt8.init(truncatingIfNeeded: $0), UInt8.init(truncatingIfNeeded: $0 >> 8)]
+        }
+        let string: NSString = try #require(
+            NSString.init(data: Data.init(bytes), encoding: String.Encoding.utf16LittleEndian.rawValue)
+        )
+        return string as String
+    }
+    #endif
 
     private static var integers: [any Transferable & Equatable] {
         Self.edges(Int.self)

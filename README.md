@@ -7,7 +7,7 @@ DistributedABI is the wire format of Ordo’s distributed calls: how an argument
 
 Most of what crosses the wire already is its wire form. A message from the SBE SDK is a run of bytes laid out exactly as it is stored and sent, and an identifier is eight bytes. Such a value conforms to `ContiguousTransferable`: it lends its bytes for the duration of a closure, and it opens from a copy of bytes it is handed. Sending it costs one memcpy into the frame the transport allocated, and receiving it costs the one copy the value makes to own its bytes. Nothing is parsed or built on the way.
 
-A value that does serialize (an integer, a string, an optional, a collection) conforms to `Transferable` and writes itself straight into the frame. The library owns no buffer of its own, so there is no intermediate array and no second copy.
+A value that does serialize (an integer, a string, an optional, a collection) conforms to `Transferable` and writes itself straight into the frame. The library owns no buffer of its own, so there is no intermediate array and no second copy. A native string is copied from its own UTF-8 storage; a string bridged from an `NSString` whose storage is not UTF-8 is transcoded on the way, which may allocate.
 
 No value records its own length. The **container** that holds it does: the transport writes a ULEB128 length in front of every argument, a collection writes a count in front of its elements and a length in front of each element whose size varies, and a composite does the same for its fields. A ULEB128 number takes one byte up to 127 and two up to 16,383, so a typical message pays one or two bytes of framing.
 
@@ -105,7 +105,7 @@ A set or a dictionary that repeats an element or a key is refused. Set and dicti
 
 ## Building and using the library
 
-DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The one unsafe operation in the library is the memcpy inside `OutputRawSpan.append(bytes:)`, and no public declaration mentions an unsafe pointer. Spans and `UTF8Span` need macOS 26 or iOS 26.
+DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The unsafe operations in the library are the memcpy inside `OutputRawSpan.append(bytes:)` and, in the string conformances, the view of a native string’s UTF-8 storage as a span for that copy, because the standard library lends that storage to inlinable code only as a pointer; no public declaration mentions an unsafe pointer. Spans and `UTF8Span` need macOS 26 or iOS 26.
 
 
 ## Version 8 and earlier versions
