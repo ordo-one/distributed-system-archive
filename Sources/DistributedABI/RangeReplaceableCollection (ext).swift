@@ -1,5 +1,6 @@
 extension RangeReplaceableCollection where Element: Transferable {
-    /// Reads what `transferElements(into:)` writes.
+    /// Reads a ULEB128 count, then that many elements, each through
+    /// ``TransferReader/take(framed:)``.
     @inlinable init(transferringElements input: inout TransferReader) throws(TransferError) {
         let count: Int = try input.takeCount(of: Element.self)
         self.init()

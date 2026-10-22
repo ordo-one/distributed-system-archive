@@ -94,8 +94,20 @@ extension TransferReader {
 }
 extension TransferReader {
     /// A ULEB128 number in canonical form: one that ends early, runs past 64 bits, carries a
-    /// redundant final zero byte, or exceeds `Int.max` is refused.
-    @inlinable mutating func takeULEB128() throws(TransferError) -> Int {
+    /// redundant final zero byte, or exceeds `Int.max` is refused. A number below 128, which
+    /// is every length and count up to 127, takes one byte and is read inline.
+    @inlinable @inline(__always) mutating func takeULEB128() throws(TransferError) -> Int {
+        if  self.index < self.bytes.byteCount {
+            let byte: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
+            if  byte < 0x80 {
+                self.index += 1
+                return Int.init(byte)
+            }
+        }
+        return try self.takeULEB128Multibyte()
+    }
+
+    @usableFromInline mutating func takeULEB128Multibyte() throws(TransferError) -> Int {
         var value: UInt = 0
         var shift: Int = 0
         while true {
@@ -106,10 +118,10 @@ extension TransferReader {
             self.index += 1
 
             let bits: UInt = .init(byte & 0x7f)
-            guard shift < UInt.bitWidth, (bits << shift) >> shift == bits else {
+            guard shift < UInt.bitWidth, (bits &<< shift) &>> shift == bits else {
                 throw .init(.count(-1, remaining: self.remaining))
             }
-            value |= bits << shift
+            value |= bits &<< shift
 
             if  byte & 0x80 == 0 {
                 guard byte != 0 || shift == 0 else {

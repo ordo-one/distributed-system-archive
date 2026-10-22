@@ -4,7 +4,10 @@ extension Array: Transferable where Element: Transferable {
     @inlinable public var transferSize: Int { self.elementsTransferSize }
 
     @inlinable public func transfer(into output: inout OutputRawSpan) {
-        self.transferElements(into: &output)
+        output.append(uleb128: UInt.init(self.count))
+        for element: Element in self {
+            output.append(framed: element)
+        }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
         try self.init(transferringElements: &input)

@@ -16,8 +16,17 @@ extension OutputRawSpan {
         }
     }
 
-    /// Appends `value` as a ULEB128 number.
-    @inlinable public mutating func append(uleb128 value: UInt) {
+    /// Appends `value` as a ULEB128 number. A number below 128 takes one byte and is written
+    /// inline.
+    @inlinable @inline(__always) public mutating func append(uleb128 value: UInt) {
+        if  value < 0x80 {
+            self.append(UInt8.init(truncatingIfNeeded: value))
+        } else {
+            self.append(multibyte: value)
+        }
+    }
+
+    @usableFromInline mutating func append(multibyte value: UInt) {
         var value: UInt = value
         while true {
             let byte: UInt8 = .init(truncatingIfNeeded: value & 0x7f)
