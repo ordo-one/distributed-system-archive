@@ -163,14 +163,19 @@ extension TransferReader {
 
     /// A count of dictionary entries, refused when the entries cannot fit in the bytes
     /// remaining: a key and a value each take one byte at least, and their fixed size each
-    /// when their type has one.
+    /// when their type has one. An entry whose size overflows `Int` cannot fit either, and
+    /// an empty dictionary is never refused, since it has no entry to fit.
     @inlinable mutating func takeCount<Key, Value>(
         keys _: Key.Type,
         values _: Value.Type
     ) throws(TransferError) -> Int where Key: Transferable, Value: Transferable {
         let count: Int = try self.takeCount()
-        let size: Int = (Key.fixedTransferSize ?? 1) + (Value.fixedTransferSize ?? 1)
-        if  size > 1, count > self.remaining / size {
+        if  count == 0 {
+            return 0
+        }
+        let size: (partialValue: Int, overflow: Bool) = (Key.fixedTransferSize ?? 1)
+            .addingReportingOverflow(Value.fixedTransferSize ?? 1)
+        if  size.overflow || size.partialValue > 1 && count > self.remaining / size.partialValue {
             throw .init(.count(count, remaining: self.remaining))
         }
         return count

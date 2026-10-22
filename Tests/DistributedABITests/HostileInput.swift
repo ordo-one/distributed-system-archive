@@ -52,6 +52,8 @@ import Testing
                 as: [UInt64: String].self,
                 .count(2, remaining: 10)
             ),
+            // an entry whose least size cannot be represented
+            Hostile.init("entry size past Int.max", [1, 0, 0], as: [Oversized: UInt8].self, .count(1, remaining: 2)),
             // malformed ULEB128
             Hostile.init(
                 "count over Int.max",
@@ -101,6 +103,15 @@ import Testing
         }
         #expect(error.map { Expectation.init($0.kind) } == .expected(count, encountered: 3))
         #expect(input.remaining == 3)
+    }
+
+    /// An empty dictionary reads even when the least size of an entry cannot be represented,
+    /// since it has no entry to make room for.
+    @Test static func EmptyDictionaryOfOversizedKeys() throws {
+        let empty: [Oversized: UInt8] = [:]
+        let bytes: [UInt8] = .init(transferring: empty)
+        #expect(bytes == [0])
+        #expect(try [Oversized: UInt8].decode(bytes) == empty)
     }
 
     /// A conformer’s error arrives unchanged, so the transport can tell a refusal from damage.
