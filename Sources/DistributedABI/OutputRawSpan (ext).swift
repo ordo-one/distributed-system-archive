@@ -28,8 +28,7 @@ extension OutputRawSpan {
 
     // emitted into the client, so a number of 128 or more is a direct call rather than one
     // through the framework’s symbol stub, and kept out of line, away from every caller
-    @usableFromInline @_alwaysEmitIntoClient @inline(never)
-    mutating func append(multibyte value: UInt) {
+    @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func append(multibyte value: UInt) {
         var value: UInt = value
         while true {
             let byte: UInt8 = .init(truncatingIfNeeded: value & 0x7f)
