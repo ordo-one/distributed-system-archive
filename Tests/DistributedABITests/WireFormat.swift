@@ -111,11 +111,17 @@ import Testing
             Packing.init([[1][...]] as [ArraySlice<UInt8>], fixed: nil, [1, 2, 1, 1]),
             Packing.init([[5]] as [Set<UInt8>], fixed: nil, [1, 2, 1, 5]),
             Packing.init([[1: 2]] as [[UInt8: UInt8]], fixed: nil, [1, 3, 1, 1, 2]),
-            // deliberately none, even when both payloads have the same fixed size
+            // deliberately none, whether the payloads differ in size
             Packing.init(
                 [.success(9), .failure(.init(code: 2))] as [Result<UInt8, Failure>],
                 fixed: nil,
                 [2, 2, 0, 9, 5, 1, 2, 0, 0, 0]
+            ),
+            // or have the same fixed size
+            Packing.init(
+                [.success(9), .failure(.init(code: 2))] as [Result<UInt32, Failure>],
+                fixed: nil,
+                [2, 5, 0, 9, 0, 0, 0, 5, 1, 2, 0, 0, 0]
             ),
         ]
     ) static func FixedSizes(_ packing: Packing) throws {
