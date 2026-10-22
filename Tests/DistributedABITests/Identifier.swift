@@ -21,7 +21,12 @@ extension Identifier {
     func withTransferBytes<Result>(_ body: (RawSpan) throws -> Result) rethrows -> Result {
         try body(self.bytes.span.bytes)
     }
+    /// Refuses a wrong count with an error, so a library that hands it the wrong bytes fails
+    /// a test instead of trapping in ``init(bytes:)``.
     init(transferBytes: RawSpan) throws(TransferError) {
+        guard transferBytes.byteCount == 8 else {
+            throw .init(.expected(8, encountered: transferBytes.byteCount))
+        }
         self.init(bytes: transferBytes.withUnsafeBytes { [UInt8].init($0) })
     }
 }

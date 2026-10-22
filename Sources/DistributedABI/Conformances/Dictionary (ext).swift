@@ -16,7 +16,7 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        let count: Int = try input.takeCount()
+        let count: Int = try input.takeCount(keys: Key.self, values: Value.self)
         self.init(minimumCapacity: count)
         for i: Int in 0 ..< count {
             let key: Key = try input.take(framed: Key.self)

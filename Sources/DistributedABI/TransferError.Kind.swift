@@ -1,7 +1,9 @@
 extension TransferError {
     @frozen public enum Kind: Sendable {
         /// Too few bytes: the first number was asked for, the second remained. An expectation of
-        /// zero bytes is the end of input, refused because bytes remained.
+        /// zero bytes is the end of input, refused because bytes remained. A value of fixed size
+        /// that read more or fewer bytes than its type states reports that size, then the number
+        /// it read.
         case expected(Int, encountered: Int)
         /// A count or length past the bytes remaining, or a malformed ULEB128 number (overlong,
         /// or over `Int.max`), which reports a count of -1.

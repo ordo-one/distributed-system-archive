@@ -24,6 +24,7 @@ import Testing
             Hostile.init("count of Int.max", Self.intMax, as: [UInt8].self, .count(.max, remaining: 0)),
             Hostile.init("count of 2^30", [0x80, 0x80, 0x80, 0x80, 0x04], as: [UInt64].self, .count(1 << 30, remaining: 0)),
             Hostile.init("dictionary count of Int.max", Self.intMax, as: [UInt8: UInt8].self, .count(.max, remaining: 0)),
+            Hostile.init("dictionary count past end", [2, 1, 1], as: [UInt8: UInt8].self, .count(2, remaining: 2)),
             Hostile.init("set count of Int.max", Self.intMax, as: Set<UInt8>.self, .count(.max, remaining: 0)),
             // malformed ULEB128
             Hostile.init(
@@ -46,6 +47,8 @@ import Testing
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
             // an element that leaves bytes of its frame unread
             Hostile.init("element left over", [1, 3, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
+            // an element of fixed size that reads fewer bytes than its type states
+            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),

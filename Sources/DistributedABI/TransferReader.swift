@@ -65,23 +65,31 @@ extension TransferReader {
             throw .init(.expected(size, encountered: self.remaining))
         }
         let value: Integer = self.bytes.load(fromByteOffset: self.index, as: Integer.self)
-        self.index += size
+        // cannot overflow, since `size` fits in the bytes remaining; wrapping, so that
+        // `take(framed:)` can see that an integer reads exactly its size
+        self.index &+= size
         return .init(littleEndian: value)
     }
 
     /// One value as the part of a container, the inverse of ``OutputRawSpan/append(framed:)``:
-    /// read in place when its type has a fixed size, and otherwise from exactly the bytes its
-    /// ULEB128 length frames, all of which it must read.
+    /// read in place when its type has a fixed size, of which it must read exactly that many
+    /// bytes, and otherwise from exactly the bytes its ULEB128 length frames, all of which it
+    /// must read.
     @inlinable public mutating func take<Value>(
         framed _: Value.Type
     ) throws(TransferError) -> Value where Value: Transferable {
-        if  case nil = Value.fixedTransferSize {
+        if  let size: Int = Value.fixedTransferSize {
+            let start: Int = self.index
+            let value: Value = try .init(transferring: &self)
+            guard self.index &- start == size else {
+                throw .init(.expected(size, encountered: self.index &- start))
+            }
+            return value
+        } else {
             var element: TransferReader = .init(try self.takePrefixed())
             let value: Value = try .init(transferring: &element)
             try element.finish()
             return value
-        } else {
-            return try .init(transferring: &self)
         }
     }
 
@@ -107,7 +115,9 @@ extension TransferReader {
         return try self.takeULEB128Multibyte()
     }
 
-    @usableFromInline mutating func takeULEB128Multibyte() throws(TransferError) -> Int {
+    // emitted into the client and kept out of line, as `OutputRawSpan.append(multibyte:)` is
+    @usableFromInline @_alwaysEmitIntoClient @inline(never)
+    mutating func takeULEB128Multibyte() throws(TransferError) -> Int {
         var value: UInt = 0
         var shift: Int = 0
         while true {
@@ -146,6 +156,21 @@ extension TransferReader {
     ) throws(TransferError) -> Int where Element: Transferable {
         let count: Int = try self.takeCount()
         if  let size: Int = Element.fixedTransferSize, size > 0, count > self.remaining / size {
+            throw .init(.count(count, remaining: self.remaining))
+        }
+        return count
+    }
+
+    /// A count of dictionary entries, refused when the entries cannot fit in the bytes
+    /// remaining: a key and a value each take one byte at least, and their fixed size each
+    /// when their type has one.
+    @inlinable mutating func takeCount<Key, Value>(
+        keys _: Key.Type,
+        values _: Value.Type
+    ) throws(TransferError) -> Int where Key: Transferable, Value: Transferable {
+        let count: Int = try self.takeCount()
+        let size: Int = (Key.fixedTransferSize ?? 1) + (Value.fixedTransferSize ?? 1)
+        if  size > 1, count > self.remaining / size {
             throw .init(.count(count, remaining: self.remaining))
         }
         return count
