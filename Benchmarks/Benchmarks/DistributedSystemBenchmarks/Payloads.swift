@@ -9,40 +9,22 @@ import DistributedABI
 //  resemble a real message. These replica types mirror the real shapes: structs of mixed
 //  fixed-width + optional + short-string fields, plus a few identifier-array collections.
 //
-//  These are SELF-CONTAINED replicas with NO SDK dependency. The BufferEncodable /
-//  BufferDecodable conformances are hand-written to mirror exactly how codegen emits them:
-//    * encode each stored field in declaration order; decode in the same order;
+//  These are SELF-CONTAINED replicas with NO SDK dependency, and their `Transferable`
+//  conformances are written the way a hand-written composite conforms in DistributedABI 8.0:
+//    * a struct writes each stored field in declaration order through `append(framed:)`, and
+//      reads it back in the same order through `take(framed:)`: a field whose type has a
+//      fixed size is packed, any other is preceded by its ULEB128 length;
+//    * a struct whose fields all have a fixed size states the sum as its own fixed size;
 //    * Optional   = 1 discriminant byte (0 = none, 1 = some) then the wrapped value if some;
 //    * fixed-width integer = little-endian raw bytes;
-//    * String     = 1 format byte then content (compact = UTF-8 + trailing NUL);
-//    * enum (raw) = the UInt8 raw value;
-//    * enum (associated values) = UInt8 discriminant then the associated values in order;
-//    * Collection = CollectionHeader (1 byte if count < 255, else 0xFF + 8-byte Int) then
-//                   each element in order.
+//    * String     = the UTF-8 bytes, framed by the container;
+//    * enum (raw) = the UInt8 raw value, through the library’s `RawRepresentable` default;
+//    * enum (associated values) = UInt8 discriminant then the payload, which its container
+//      frames, as `Optional` and `Result` do;
+//    * Collection = ULEB128 count then each element (packed or framed, as above).
 //
-//  All three types use `BufferDecodingError` as their `DeserializationError` and `Never` as
-//  their `SerializationError` is NOT possible (String/Collection conformances are non-throwing
-//  but the protocol requires an error type) — so we follow the library's own convention and
-//  declare `BufferDecodingError` for decode and let encode be non-throwing where every field is
-//  non-throwing. To keep the conformances uniform and codegen-faithful we mark `encode` as
-//  `throws(BufferDecodingError)`-free (non-throwing) since none of these field types throw on
-//  encode; decode uses `BufferDecodingError`.
-
-// MARK: - Shared helpers (codegen-faithful field encode/decode)
-
-//  NOTE: every field's `encode` here is non-throwing (integers, Bool, String, Optional of those,
-//  and Collections of those are all non-throwing on the encode side in this library), so the
-//  message-level `encode` is non-throwing too. Decode is `throws(BufferDecodingError)`.
-
-/// Raised when an enum discriminant byte is out of range during decode. The library's own
-/// `BufferDiscriminationError` is module-internal, so the replicas use this local equivalent
-/// wrapped in `BufferDecodingError.arbitrary` — exactly the shape codegen produces for an
-/// unrecognized discriminant.
-struct UnknownDiscriminant: Error, CustomStringConvertible {
-    let type: String
-    let code: UInt8
-    var description: String { "unknown discriminant \(code) for \(type)" }
-}
+//  In production these shapes are SBE rows, which lend their bytes unchanged; the replicas
+//  measure what a composite that does serialize costs.
 
 // MARK: - 1. PublicOrderLike — hot-path book update
 
@@ -51,66 +33,65 @@ struct MarketIdLike: Equatable {
     var value: UInt64
     var flags: UInt8
 }
-extension MarketIdLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.value.encode(to: &output)
-        self.flags.encode(to: &output)
+extension MarketIdLike: Transferable {
+    static var fixedTransferSize: Int? { 9 }
+    var transferSize: Int { 9 }
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.value)
+        output.append(framed: self.flags)
     }
-}
-extension MarketIdLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let value: UInt64 = try .decode(from: &input)
-        let flags: UInt8 = try .decode(from: &input)
-        return .init(value: value, flags: flags)
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        let value: UInt64 = try input.take(framed: UInt64.self)
+        let flags: UInt8 = try input.take(framed: UInt8.self)
+        self.init(value: value, flags: flags)
     }
 }
 
-/// Order side — a simple raw-valued enum (buy / sell). Encoded as its `UInt8` raw value.
-enum SideLike: UInt8, BufferEncodable, BufferDecodable {
+/// Order side — a simple raw-valued enum (buy / sell). Travels as its `UInt8` raw value.
+enum SideLike: UInt8, Transferable {
     case buy = 0
     case sell = 1
 }
 
-/// Order type — an enum with associated values. Codegen emits a `UInt8` discriminant in
-/// declaration order followed by the associated values of the selected case, in order.
+/// Order type — an enum with associated values: a `UInt8` discriminant in declaration order
+/// followed by the associated value of the selected case.
 enum OrderTypeLike: Equatable {
     case market
     case limit
     case stopMarket(stopPrice: Int64)
     case peg(offsetTicks: Int)
 }
-extension OrderTypeLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
+extension OrderTypeLike: Transferable {
+    var transferSize: Int {
         switch self {
-        case .market:
-            UInt8(0).encode(to: &output)
-        case .limit:
-            UInt8(1).encode(to: &output)
-        case .stopMarket(let stopPrice):
-            UInt8(2).encode(to: &output)
-            stopPrice.encode(to: &output)
-        case .peg(let offsetTicks):
-            UInt8(3).encode(to: &output)
-            offsetTicks.encode(to: &output)
+        case .market, .limit: 1
+        case .stopMarket: 9
+        case .peg: 9
         }
     }
-}
-extension OrderTypeLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let discriminant: UInt8 = try .decode(from: &input)
-        switch discriminant {
-        case 0:
-            return .market
-        case 1:
-            return .limit
-        case 2:
-            let stopPrice: Int64 = try .decode(from: &input)
-            return .stopMarket(stopPrice: stopPrice)
-        case 3:
-            let offsetTicks: Int = try .decode(from: &input)
-            return .peg(offsetTicks: offsetTicks)
-        case let code:
-            throw .arbitrary(UnknownDiscriminant(type: "OrderTypeLike", code: code))
+
+    func transfer(into output: inout OutputRawSpan) {
+        switch self {
+        case .market:
+            output.append(0)
+        case .limit:
+            output.append(1)
+        case .stopMarket(let stopPrice):
+            output.append(2)
+            stopPrice.transfer(into: &output)
+        case .peg(let offsetTicks):
+            output.append(3)
+            offsetTicks.transfer(into: &output)
+        }
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        switch try input.take(UInt8.self) {
+        case 0: self = .market
+        case 1: self = .limit
+        case 2: self = .stopMarket(stopPrice: try .init(transferring: &input))
+        case 3: self = .peg(offsetTicks: try .init(transferring: &input))
+        case let code: throw .init(.discriminant(.init(code)))
         }
     }
 }
@@ -137,70 +118,71 @@ struct PublicOrderLike: Equatable {
     var dateOfOrder: UInt32
     var type: OrderTypeLike?
 }
-extension PublicOrderLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.identifier.encode(to: &output)
-        self.marketDataSource.encode(to: &output)
-        self.market.encode(to: &output)
-        self.exchangeOrderReference.encode(to: &output)
-        self.instrument.encode(to: &output)
-        self.side.encode(to: &output)
-        self.price.encode(to: &output)
-        self.quantity.encode(to: &output)
-        self.state.encode(to: &output)
-        self.count.encode(to: &output)
-        self.priority.encode(to: &output)
-        self.publicOrderTime.encode(to: &output)
-        self.timeCreated.encode(to: &output)
-        self.timeUpdated.encode(to: &output)
-        self.updatedByPlugin.encode(to: &output)
-        self.updatedByModule.encode(to: &output)
-        self.sourcePublicOrderRecoveryReference.encode(to: &output)
-        self.dateOfOrder.encode(to: &output)
-        self.type.encode(to: &output)
+extension PublicOrderLike: Transferable {
+    var transferSize: Int {
+        self.identifier.framedTransferSize
+            + self.marketDataSource.framedTransferSize
+            + self.market.framedTransferSize
+            + self.exchangeOrderReference.framedTransferSize
+            + self.instrument.framedTransferSize
+            + self.side.framedTransferSize
+            + self.price.framedTransferSize
+            + self.quantity.framedTransferSize
+            + self.state.framedTransferSize
+            + self.count.framedTransferSize
+            + self.priority.framedTransferSize
+            + self.publicOrderTime.framedTransferSize
+            + self.timeCreated.framedTransferSize
+            + self.timeUpdated.framedTransferSize
+            + self.updatedByPlugin.framedTransferSize
+            + self.updatedByModule.framedTransferSize
+            + self.sourcePublicOrderRecoveryReference.framedTransferSize
+            + self.dateOfOrder.framedTransferSize
+            + self.type.framedTransferSize
     }
-}
-extension PublicOrderLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let identifier: UInt64 = try .decode(from: &input)
-        let marketDataSource: UInt64? = try .decode(from: &input)
-        let market: MarketIdLike? = try .decode(from: &input)
-        let exchangeOrderReference: String? = try .decode(from: &input)
-        let instrument: UInt64 = try .decode(from: &input)
-        let side: SideLike = try .decode(from: &input)
-        let price: Int64? = try .decode(from: &input)
-        let quantity: Int64? = try .decode(from: &input)
-        let state: UInt8? = try .decode(from: &input)
-        let count: Int? = try .decode(from: &input)
-        let priority: UInt64? = try .decode(from: &input)
-        let publicOrderTime: UInt64? = try .decode(from: &input)
-        let timeCreated: UInt64 = try .decode(from: &input)
-        let timeUpdated: UInt64? = try .decode(from: &input)
-        let updatedByPlugin: UInt64? = try .decode(from: &input)
-        let updatedByModule: UInt64? = try .decode(from: &input)
-        let sourcePublicOrderRecoveryReference: String? = try .decode(from: &input)
-        let dateOfOrder: UInt32 = try .decode(from: &input)
-        let type: OrderTypeLike? = try .decode(from: &input)
-        return .init(
-            identifier: identifier,
-            marketDataSource: marketDataSource,
-            market: market,
-            exchangeOrderReference: exchangeOrderReference,
-            instrument: instrument,
-            side: side,
-            price: price,
-            quantity: quantity,
-            state: state,
-            count: count,
-            priority: priority,
-            publicOrderTime: publicOrderTime,
-            timeCreated: timeCreated,
-            timeUpdated: timeUpdated,
-            updatedByPlugin: updatedByPlugin,
-            updatedByModule: updatedByModule,
-            sourcePublicOrderRecoveryReference: sourcePublicOrderRecoveryReference,
-            dateOfOrder: dateOfOrder,
-            type: type
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.identifier)
+        output.append(framed: self.marketDataSource)
+        output.append(framed: self.market)
+        output.append(framed: self.exchangeOrderReference)
+        output.append(framed: self.instrument)
+        output.append(framed: self.side)
+        output.append(framed: self.price)
+        output.append(framed: self.quantity)
+        output.append(framed: self.state)
+        output.append(framed: self.count)
+        output.append(framed: self.priority)
+        output.append(framed: self.publicOrderTime)
+        output.append(framed: self.timeCreated)
+        output.append(framed: self.timeUpdated)
+        output.append(framed: self.updatedByPlugin)
+        output.append(framed: self.updatedByModule)
+        output.append(framed: self.sourcePublicOrderRecoveryReference)
+        output.append(framed: self.dateOfOrder)
+        output.append(framed: self.type)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            identifier: try input.take(framed: UInt64.self),
+            marketDataSource: try input.take(framed: UInt64?.self),
+            market: try input.take(framed: MarketIdLike?.self),
+            exchangeOrderReference: try input.take(framed: String?.self),
+            instrument: try input.take(framed: UInt64.self),
+            side: try input.take(framed: SideLike.self),
+            price: try input.take(framed: Int64?.self),
+            quantity: try input.take(framed: Int64?.self),
+            state: try input.take(framed: UInt8?.self),
+            count: try input.take(framed: Int?.self),
+            priority: try input.take(framed: UInt64?.self),
+            publicOrderTime: try input.take(framed: UInt64?.self),
+            timeCreated: try input.take(framed: UInt64.self),
+            timeUpdated: try input.take(framed: UInt64?.self),
+            updatedByPlugin: try input.take(framed: UInt64?.self),
+            updatedByModule: try input.take(framed: UInt64?.self),
+            sourcePublicOrderRecoveryReference: try input.take(framed: String?.self),
+            dateOfOrder: try input.take(framed: UInt32.self),
+            type: try input.take(framed: OrderTypeLike?.self)
         )
     }
 }
@@ -214,21 +196,23 @@ struct SemVerLike: Equatable {
     var patch: UInt16
     var preRelease: UInt16
 }
-extension SemVerLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.major.encode(to: &output)
-        self.minor.encode(to: &output)
-        self.patch.encode(to: &output)
-        self.preRelease.encode(to: &output)
+extension SemVerLike: Transferable {
+    static var fixedTransferSize: Int? { 8 }
+    var transferSize: Int { 8 }
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.major)
+        output.append(framed: self.minor)
+        output.append(framed: self.patch)
+        output.append(framed: self.preRelease)
     }
-}
-extension SemVerLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let major: UInt16 = try .decode(from: &input)
-        let minor: UInt16 = try .decode(from: &input)
-        let patch: UInt16 = try .decode(from: &input)
-        let preRelease: UInt16 = try .decode(from: &input)
-        return .init(major: major, minor: minor, patch: patch, preRelease: preRelease)
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            major: try input.take(framed: UInt16.self),
+            minor: try input.take(framed: UInt16.self),
+            patch: try input.take(framed: UInt16.self),
+            preRelease: try input.take(framed: UInt16.self)
+        )
     }
 }
 
@@ -240,28 +224,29 @@ struct ResourceDataDescLike: Equatable {
     var totalChunks: UInt32
     var sha256: String
 }
-extension ResourceDataDescLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.generation.encode(to: &output)
-        self.partition.encode(to: &output)
-        self.offset.encode(to: &output)
-        self.totalChunks.encode(to: &output)
-        self.sha256.encode(to: &output)
+extension ResourceDataDescLike: Transferable {
+    var transferSize: Int {
+        self.generation.framedTransferSize
+            + self.partition.framedTransferSize
+            + self.offset.framedTransferSize
+            + self.totalChunks.framedTransferSize
+            + self.sha256.framedTransferSize
     }
-}
-extension ResourceDataDescLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let generation: UInt64 = try .decode(from: &input)
-        let partition: Int = try .decode(from: &input)
-        let offset: Int = try .decode(from: &input)
-        let totalChunks: UInt32 = try .decode(from: &input)
-        let sha256: String = try .decode(from: &input)
-        return .init(
-            generation: generation,
-            partition: partition,
-            offset: offset,
-            totalChunks: totalChunks,
-            sha256: sha256
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.generation)
+        output.append(framed: self.partition)
+        output.append(framed: self.offset)
+        output.append(framed: self.totalChunks)
+        output.append(framed: self.sha256)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            generation: try input.take(framed: UInt64.self),
+            partition: try input.take(framed: Int.self),
+            offset: try input.take(framed: Int.self),
+            totalChunks: try input.take(framed: UInt32.self),
+            sha256: try input.take(framed: String.self)
         )
     }
 }
@@ -279,43 +264,44 @@ struct ResourceLike: Equatable {
     var timeUpdated: UInt64?
     var dataDescription: ResourceDataDescLike?
 }
-extension ResourceLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.identifier.encode(to: &output)
-        self.state.encode(to: &output)
-        self.version.encode(to: &output)
-        self.sha256.encode(to: &output)
-        self.symbol.encode(to: &output)
-        self.name.encode(to: &output)
-        self.originalFilesystemName.encode(to: &output)
-        self.timeCreated.encode(to: &output)
-        self.timeUpdated.encode(to: &output)
-        self.dataDescription.encode(to: &output)
+extension ResourceLike: Transferable {
+    var transferSize: Int {
+        self.identifier.framedTransferSize
+            + self.state.framedTransferSize
+            + self.version.framedTransferSize
+            + self.sha256.framedTransferSize
+            + self.symbol.framedTransferSize
+            + self.name.framedTransferSize
+            + self.originalFilesystemName.framedTransferSize
+            + self.timeCreated.framedTransferSize
+            + self.timeUpdated.framedTransferSize
+            + self.dataDescription.framedTransferSize
     }
-}
-extension ResourceLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let identifier: UInt64 = try .decode(from: &input)
-        let state: UInt8 = try .decode(from: &input)
-        let version: SemVerLike = try .decode(from: &input)
-        let sha256: String? = try .decode(from: &input)
-        let symbol: String = try .decode(from: &input)
-        let name: String? = try .decode(from: &input)
-        let originalFilesystemName: String? = try .decode(from: &input)
-        let timeCreated: UInt64 = try .decode(from: &input)
-        let timeUpdated: UInt64? = try .decode(from: &input)
-        let dataDescription: ResourceDataDescLike? = try .decode(from: &input)
-        return .init(
-            identifier: identifier,
-            state: state,
-            version: version,
-            sha256: sha256,
-            symbol: symbol,
-            name: name,
-            originalFilesystemName: originalFilesystemName,
-            timeCreated: timeCreated,
-            timeUpdated: timeUpdated,
-            dataDescription: dataDescription
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.identifier)
+        output.append(framed: self.state)
+        output.append(framed: self.version)
+        output.append(framed: self.sha256)
+        output.append(framed: self.symbol)
+        output.append(framed: self.name)
+        output.append(framed: self.originalFilesystemName)
+        output.append(framed: self.timeCreated)
+        output.append(framed: self.timeUpdated)
+        output.append(framed: self.dataDescription)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            identifier: try input.take(framed: UInt64.self),
+            state: try input.take(framed: UInt8.self),
+            version: try input.take(framed: SemVerLike.self),
+            sha256: try input.take(framed: String?.self),
+            symbol: try input.take(framed: String.self),
+            name: try input.take(framed: String?.self),
+            originalFilesystemName: try input.take(framed: String?.self),
+            timeCreated: try input.take(framed: UInt64.self),
+            timeUpdated: try input.take(framed: UInt64?.self),
+            dataDescription: try input.take(framed: ResourceDataDescLike?.self)
         )
     }
 }
@@ -331,48 +317,49 @@ enum PropertyValueLike: Equatable {
     case timestamp(UInt64)
     case instrument(UInt64)
 }
-extension PropertyValueLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
+extension PropertyValueLike: Transferable {
+    var transferSize: Int {
         switch self {
-        case .integer(let v):
-            UInt8(0).encode(to: &output)
-            v.encode(to: &output)
-        case .decimal(let v):
-            UInt8(1).encode(to: &output)
-            v.encode(to: &output)
-        case .boolean(let v):
-            UInt8(2).encode(to: &output)
-            v.encode(to: &output)
-        case .text(let v):
-            UInt8(3).encode(to: &output)
-            v.encode(to: &output)
-        case .timestamp(let v):
-            UInt8(4).encode(to: &output)
-            v.encode(to: &output)
-        case .instrument(let v):
-            UInt8(5).encode(to: &output)
-            v.encode(to: &output)
+        case .integer(let self): 1 + self.transferSize
+        case .decimal(let self): 1 + self.transferSize
+        case .boolean(let self): 1 + self.transferSize
+        case .text(let self): 1 + self.transferSize
+        case .timestamp(let self): 1 + self.transferSize
+        case .instrument(let self): 1 + self.transferSize
         }
     }
-}
-extension PropertyValueLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let discriminant: UInt8 = try .decode(from: &input)
-        switch discriminant {
-        case 0:
-            return .integer(try .decode(from: &input))
-        case 1:
-            return .decimal(try .decode(from: &input))
-        case 2:
-            return .boolean(try .decode(from: &input))
-        case 3:
-            return .text(try .decode(from: &input))
-        case 4:
-            return .timestamp(try .decode(from: &input))
-        case 5:
-            return .instrument(try .decode(from: &input))
-        case let code:
-            throw .arbitrary(UnknownDiscriminant(type: "PropertyValueLike", code: code))
+
+    func transfer(into output: inout OutputRawSpan) {
+        switch self {
+        case .integer(let self):
+            output.append(0)
+            self.transfer(into: &output)
+        case .decimal(let self):
+            output.append(1)
+            self.transfer(into: &output)
+        case .boolean(let self):
+            output.append(2)
+            self.transfer(into: &output)
+        case .text(let self):
+            output.append(3)
+            self.transfer(into: &output)
+        case .timestamp(let self):
+            output.append(4)
+            self.transfer(into: &output)
+        case .instrument(let self):
+            output.append(5)
+            self.transfer(into: &output)
+        }
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        switch try input.take(UInt8.self) {
+        case 0: self = .integer(try .init(transferring: &input))
+        case 1: self = .decimal(try .init(transferring: &input))
+        case 2: self = .boolean(try .init(transferring: &input))
+        case 3: self = .text(try .init(transferring: &input))
+        case 4: self = .timestamp(try .init(transferring: &input))
+        case 5: self = .instrument(try .init(transferring: &input))
+        case let code: throw .init(.discriminant(.init(code)))
         }
     }
 }
@@ -382,17 +369,20 @@ struct PropertyLike: Equatable {
     var identifier: UInt64
     var value: PropertyValueLike
 }
-extension PropertyLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.identifier.encode(to: &output)
-        self.value.encode(to: &output)
+extension PropertyLike: Transferable {
+    var transferSize: Int {
+        self.identifier.framedTransferSize + self.value.framedTransferSize
     }
-}
-extension PropertyLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let identifier: UInt64 = try .decode(from: &input)
-        let value: PropertyValueLike = try .decode(from: &input)
-        return .init(identifier: identifier, value: value)
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.identifier)
+        output.append(framed: self.value)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            identifier: try input.take(framed: UInt64.self),
+            value: try input.take(framed: PropertyValueLike.self)
+        )
     }
 }
 
@@ -402,19 +392,24 @@ struct ComputedPropertySubscriptionLike: Equatable {
     var objects: [UInt64]
     var settings: [PropertyLike]
 }
-extension ComputedPropertySubscriptionLike: BufferEncodable {
-    func encode(to output: inout BufferEncoder) {
-        self.setIdentifier.encode(to: &output)
-        self.objects.encode(to: &output)
-        self.settings.encode(to: &output)
+extension ComputedPropertySubscriptionLike: Transferable {
+    var transferSize: Int {
+        self.setIdentifier.framedTransferSize
+            + self.objects.framedTransferSize
+            + self.settings.framedTransferSize
     }
-}
-extension ComputedPropertySubscriptionLike: BufferDecodable {
-    static func decode(from input: inout BufferDecoder) throws(BufferDecodingError) -> Self {
-        let setIdentifier: UInt64 = try .decode(from: &input)
-        let objects: [UInt64] = try .decode(from: &input)
-        let settings: [PropertyLike] = try .decode(from: &input)
-        return .init(setIdentifier: setIdentifier, objects: objects, settings: settings)
+
+    func transfer(into output: inout OutputRawSpan) {
+        output.append(framed: self.setIdentifier)
+        output.append(framed: self.objects)
+        output.append(framed: self.settings)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(
+            setIdentifier: try input.take(framed: UInt64.self),
+            objects: try input.take(framed: [UInt64].self),
+            settings: try input.take(framed: [PropertyLike].self)
+        )
     }
 }
 
@@ -476,7 +471,9 @@ enum PayloadFixtures {
             identifier: 0x2000_0000_0000_0000 &+ UInt64(i),
             state: 2,
             version: .init(major: 1, minor: 4, patch: 17, preRelease: 0),
-            sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",  // 64 hex
+            sha256: """
+            0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+            """,  // 64 hex
             symbol: "AAPL.OQ\(i & 1)",  // 8 chars
             name: "Apple Inc Common Stock",
             originalFilesystemName: "aapl-quote-feed.bin",
@@ -522,48 +519,27 @@ enum PayloadFixtures {
 
 // MARK: - Round-trip helpers (measured-region bodies)
 
-//  The measured region models the FULL production cost: encode each message into ONE reused
-//  encoder, copy the encoder output into a reused `[UInt8]` wire buffer (the send copy), then
-//  decode from a FRESH `[UInt8]` copy of those bytes (the ByteBuffer -> Array receive copy that
-//  production pays on the wire). `blackHole` keeps the decoded value live.
+//  The measured region models the 8.0 transport path: the message is sized from
+//  `transferSize`, written straight into one reused frame buffer (the send, no intermediate
+//  copy), and read back from that buffer through a borrowed reader (the receive, no decoder
+//  copy). `blackHole` keeps the decoded value live. The 7.x suite also measured “nocopy”
+//  variants that left out its two buffer copies; 8.0 has neither copy, so they are gone.
 
-@inline(never)
-func roundtripPayloads<T: BufferEncodable & BufferDecodable>(
-    _ messages: [T],
-    wire: inout [UInt8]
-) throws where T.SerializationError == Never {
-    for message in messages {
-        // Reuse the wire buffer's backing storage across messages with a genuine
-        // zero-copy hand-off: clear it (keeping capacity), move it into the encoder,
-        // drop our reference so the encoder's buffer is uniquely owned (no COW copy
-        // on the first append), encode in place, then reclaim it via `finalize()`
-        // with its grown capacity intact. Steady state does zero encoder reallocs.
-        wire.removeAll(keepingCapacity: true)
-        var encoder: BufferEncoder = .init(preallocated: wire)
-        wire = []
-        message.encode(to: &encoder)
-        wire = encoder.storage
-        // model the receive copy: a FRESH [UInt8] the decoder reads from (the
-        // ByteBuffer -> Array copy production pays on receive).
-        let received: [UInt8] = Array(wire)
-        var decoder: BufferDecoder = .init(received[...])
-        let value: T = try .decode(from: &decoder)
-        blackHole(value)
-    }
-}
-
-//  NoCopy variant: feed `encoder.output` straight into the decoder, with NO send copy and NO
-//  receive copy. Isolates the cost of the two production buffer copies (copy − nocopy delta).
-@inline(never)
-func roundtripPayloadsNoCopy<T: BufferEncodable & BufferDecodable>(
-    _ messages: [T]
-) throws where T.SerializationError == Never {
-    for message in messages {
-        var encoder: BufferEncoder = .init(capacity: 256)
-        message.encode(to: &encoder)
-        var decoder: BufferDecoder = .init(encoder.output)
-        let value: T = try .decode(from: &decoder)
-        blackHole(value)
+@inline(never) func roundtripPayloads<Message>(
+    _ messages: [Message],
+    frame: UnsafeMutableRawBufferPointer
+) throws(TransferError) where Message: Transferable {
+    for message: Message in messages {
+        precondition(message.transferSize <= frame.count, "frame too small")
+        var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
+        message.transfer(into: &output)
+        do {
+            var input: TransferReader = .init(output.bytes)
+            let value: Message = try .init(transferring: &input)
+            try input.finish()
+            blackHole(value)
+        }
+        _ = output.finalize(for: frame)
     }
 }
 
@@ -576,93 +552,62 @@ func registerPayloadBenchmarks() {
     // the per-message work dominates the loop overhead.
     let messageCount: Int = 1_000
 
+    func register<Message>(_ name: String, _ messages: [Message], frame capacity: Int)
+        where Message: Transferable & Equatable {
+        precondition(debugRoundtripOK(messages[0]), "\(name) roundtrip mismatch")
+        Benchmark.init(name, configuration: config) { benchmark in
+            let frame: UnsafeMutableRawBufferPointer = .allocate(
+                byteCount: capacity,
+                alignment: 16
+            )
+            defer {
+                frame.deallocate()
+            }
+            benchmark.startMeasurement()
+            for _ in benchmark.scaledIterations {
+                try roundtripPayloads(messages, frame: frame)
+            }
+        }
+    }
+
     // -- PublicOrderLike sparse (the true hot path) --
-    let sparse: [PublicOrderLike] = (0 ..< messageCount).map(PayloadFixtures.publicOrderSparse)
-    precondition(debugRoundtripOK(sparse[0]), "PublicOrder sparse roundtrip mismatch")
-
-    Benchmark.init("PublicOrder sparse", configuration: config) { benchmark in
-        var wire: [UInt8] = []
-        wire.reserveCapacity(256)
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            try roundtripPayloads(sparse, wire: &wire)
-        }
-    }
-
-    Benchmark.init("PublicOrder sparse nocopy", configuration: config) { benchmark in
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            try roundtripPayloadsNoCopy(sparse)
-        }
-    }
-
+    register(
+        "PublicOrder sparse",
+        (0 ..< messageCount).map(PayloadFixtures.publicOrderSparse),
+        frame: 256
+    )
     // -- PublicOrderLike full (every optional populated, two 16-char strings) --
-    let full: [PublicOrderLike] = (0 ..< messageCount).map(PayloadFixtures.publicOrderFull)
-    precondition(debugRoundtripOK(full[0]), "PublicOrder full roundtrip mismatch")
-
-    Benchmark.init("PublicOrder full", configuration: config) { benchmark in
-        var wire: [UInt8] = []
-        wire.reserveCapacity(256)
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            try roundtripPayloads(full, wire: &wire)
-        }
-    }
-
-    Benchmark.init("PublicOrder full nocopy", configuration: config) { benchmark in
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            try roundtripPayloadsNoCopy(full)
-        }
-    }
-
+    register(
+        "PublicOrder full",
+        (0 ..< messageCount).map(PayloadFixtures.publicOrderFull),
+        frame: 256
+    )
     // -- ResourceLike (strings + optionals + nested) --
-    let resources: [ResourceLike] = (0 ..< messageCount).map(PayloadFixtures.resource)
-    precondition(debugRoundtripOK(resources[0]), "Resource roundtrip mismatch")
-
-    Benchmark.init("Resource", configuration: config) { benchmark in
-        var wire: [UInt8] = []
-        wire.reserveCapacity(512)
-        benchmark.startMeasurement()
-        for _ in benchmark.scaledIterations {
-            try roundtripPayloads(resources, wire: &wire)
-        }
-    }
+    register("Resource", (0 ..< messageCount).map(PayloadFixtures.resource), frame: 512)
 
     // -- ComputedPropertySubscriptionLike across object counts (Big-O slope) --
     //  Fewer messages per iteration for the large object counts so total work per iteration
     //  stays bounded; per-element instructions are derived from the slope across counts.
-    for objectCount in [10, 100, 1_000, 10_000] {
-        let msgs: Int = objectCount >= 1_000 ? 50 : 200
-        let cpsubs: [ComputedPropertySubscriptionLike] =
-            (0 ..< msgs).map { PayloadFixtures.cpSub(objectCount: objectCount, $0) }
-        precondition(debugRoundtripOK(cpsubs[0]), "CPSub roundtrip mismatch")
-
-        let cap: Int = objectCount * 9 + 256
-        Benchmark.init("CPSub objects=\(objectCount)", configuration: config) { benchmark in
-            var wire: [UInt8] = []
-            wire.reserveCapacity(cap)
-            benchmark.startMeasurement()
-            for _ in benchmark.scaledIterations {
-                try roundtripPayloads(cpsubs, wire: &wire)
-            }
-        }
+    for objectCount: Int in [10, 100, 1_000, 10_000] {
+        let messages: Int = objectCount >= 1_000 ? 50 : 200
+        register(
+            "CPSub objects=\(objectCount)",
+            (0 ..< messages).map { PayloadFixtures.cpSub(objectCount: objectCount, $0) },
+            frame: objectCount * 9 + 256
+        )
     }
 }
 
-/// A quick round-trip validation used at fixture-build time so we KNOW encode/decode agree
-/// before measuring. Returns true iff the decoded value equals the original.
-func debugRoundtripOK<T: BufferEncodable & BufferDecodable & Equatable>(
-    _ message: T
-) -> Bool where T.SerializationError == Never {
+/// A quick round-trip validation used at fixture-build time so we KNOW the conformance agrees
+/// with itself, and writes exactly the bytes it states, before measuring.
+func debugRoundtripOK<Message>(_ message: Message) -> Bool
+    where Message: Transferable & Equatable {
+    let bytes: [UInt8] = .init(transferring: message)
+    guard bytes.count == message.transferSize else {
+        return false
+    }
     do {
-        var encoder: BufferEncoder = .init(capacity: 256)
-        message.encode(to: &encoder)
-        let bytes: [UInt8] = Array(encoder.output)
-        var decoder: BufferDecoder = .init(bytes[...])
-        let decoded: T = try .decode(from: &decoder)
-        try decoder.finish()
-        return decoded == message
+        return try Message.decode(bytes) == message
     } catch {
         return false
     }
