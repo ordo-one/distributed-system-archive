@@ -30,3 +30,8 @@ extension Identifier {
         self.init(bytes: transferBytes.withUnsafeBytes { [UInt8].init($0) })
     }
 }
+extension Identifier: Fuzzable {
+    static func random(using random: inout SplitMix64, budget _: inout Int) -> Self {
+        .init(random.next())
+    }
+}

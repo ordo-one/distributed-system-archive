@@ -23,3 +23,15 @@ extension [UInt8] {
         self.init(capacity: value.framedTransferSize) { $0.append(framed: value) }
     }
 }
+extension Array: Fuzzable where Element: Fuzzable {
+    static var shape: Fuzz.Shape { .elements(Element.shape, ordered: true) }
+
+    static func random(using random: inout SplitMix64, budget: inout Int) -> Self {
+        let count: Int = Fuzz.count(using: &random, budget: &budget)
+        return (0 ..< count).map { _ in .random(using: &random, budget: &budget) }
+    }
+
+    static func same(_ a: Self, _ b: Self) -> Bool {
+        a.count == b.count && zip(a, b).allSatisfy(Element.same(_:_:))
+    }
+}

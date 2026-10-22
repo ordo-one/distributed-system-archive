@@ -19,3 +19,8 @@ extension Failure {
         self.init(code: try .init(transferring: &input))
     }
 }
+extension Failure: Fuzzable {
+    static func random(using random: inout SplitMix64, budget _: inout Int) -> Self {
+        .init(code: .random(in: .min ... .max, using: &random))
+    }
+}
