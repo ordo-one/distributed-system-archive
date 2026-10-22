@@ -3,8 +3,11 @@ extension OutputRawSpan {
     @inlinable public mutating func append(bytes: RawSpan) {
         let count: Int = bytes.byteCount
         precondition(count <= self.freeCapacity, "OutputRawSpan capacity overflow")
-        // the standard library has no bulk append of a span yet, and a byte-at-a-time loop is
-        // the cost this library exists to avoid
+        // the standard library has no bulk append of a span into an `OutputRawSpan` yet, and a
+        // byte-at-a-time loop is the cost this library exists to avoid; SE-0558 adds the bulk
+        // updates of initialized memory and defers this append to a follow-up proposal, which
+        // would make this a safe call:
+        // https://github.com/swiftlang/swift-evolution/blob/main/proposals/0558-mutablespan-bulk-updates.md
         unsafe self.withUnsafeMutableBytes {
             (buffer: UnsafeMutableRawBufferPointer, initialized: inout Int) in
             bytes.withUnsafeBytes {
