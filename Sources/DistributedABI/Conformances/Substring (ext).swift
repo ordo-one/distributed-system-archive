@@ -13,11 +13,14 @@ extension Substring: Transferable {
         }
     }
 
-    // a substring of a bridged string, out of line and away from every caller
+    // a substring of a bridged string, out of line and away from every caller, one byte at
+    // a time: `utf8Span` would measure all the text before the substring on every write
     @usableFromInline @_alwaysEmitIntoClient @inline(never) func transfer(
         transcoding output: inout OutputRawSpan
     ) {
-        output.append(bytes: self.utf8Span.span.bytes)
+        for byte: UInt8 in self.utf8 {
+            output.append(byte)
+        }
     }
 
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
