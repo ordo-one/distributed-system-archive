@@ -107,6 +107,8 @@ let benchmarks: @Sendable () -> () = {
     registerPayloadBenchmarks()
     // String writes on their own (see Strings.swift).
     registerStringBenchmarks()
+    // Sends of class-backed messages (see Sends.swift).
+    registerSendBenchmarks()
 }
 
 //  Each value becomes its own `[UInt8]`, sized from `transferSize`, and is read back from it,
