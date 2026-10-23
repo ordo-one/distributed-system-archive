@@ -9,9 +9,10 @@ extension TransferError {
         case count(Int, remaining: Int)
         /// A malformed ULEB128 number: overlong, past 64 bits, or over `Int.max`.
         case malformed(remaining: Int)
-        /// A `Bool`, `Optional` or `Result` discriminant byte out of range, or an integer raw
-        /// value with no case, as the unsigned number its bits form on the wire: all of them
-        /// for every standard integer, and the low 128 for a wider one.
+        /// A `Bool`, `Optional` or `Result` discriminant byte out of range, a byte other than
+        /// zero in place of an empty `InlineArray`, or an integer raw value with no case, as
+        /// the unsigned number its bits form on the wire: all of them for every standard
+        /// integer, and the low 128 for a wider one.
         case discriminant(UInt128)
         /// A `Set` element or `Dictionary` key that repeats an earlier one, at this position.
         case duplicate(Int)

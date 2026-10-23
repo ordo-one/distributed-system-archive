@@ -149,6 +149,40 @@ import Testing
         #expect(try packing.read(packing.golden))
     }
 
+    /// An inline array writes its elements with no count, or one zero byte when it has none,
+    /// and states a fixed size whenever its elements do, so that a composite holding one keeps
+    /// a fixed size of its own.
+    @Test(
+        arguments: [
+            // fixed-size elements, packed
+            Inline.init([7] as InlineArray<1, UInt32>, fixed: 4, [7, 0, 0, 0]),
+            Inline.init([1, -2, 0x0102, 0] as InlineArray<4, Int16>, fixed: 8, [1, 0, 0xfe, 0xff, 2, 1, 0, 0]),
+            // variable-size elements, each delimiting itself
+            Inline.init(["ab", "", "é"] as InlineArray<3, String>, fixed: nil, [2, 0x61, 0x62, 0, 2, 0xc3, 0xa9]),
+            // no elements: one zero byte, whatever the element
+            Inline.init([] as InlineArray<0, Int64>, fixed: 1, [0]),
+            Inline.init([] as InlineArray<0, String>, fixed: 1, [0]),
+            Inline.init([[], []] as [InlineArray<0, String>], fixed: nil, [2, 0, 0]),
+            // nested in an inline array, and in a composite, which then has a fixed size too
+            Inline.init([[1, 2], [3, 4]] as InlineArray<2, InlineArray<2, UInt8>>, fixed: 4, [1, 2, 3, 4]),
+            Inline.init(
+                Ladder.init(prices: [0x0102, -1], side: .sell),
+                fixed: 9,
+                [2, 1, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff]
+            ),
+            Inline.init(
+                [.init(prices: [1, 2], side: .buy)] as [Ladder],
+                fixed: nil,
+                [1, 1, 0, 0, 0, 2, 0, 0, 0, 1]
+            ),
+        ]
+    ) static func InlineArrays(_ inline: Inline) throws {
+        #expect(inline.stated == inline.expected)
+        #expect(inline.write() == inline.golden)
+        #expect(inline.size == inline.golden.count)
+        #expect(try inline.reread(inline.golden) == inline.golden)
+    }
+
     @Test(
         arguments: [
             (0, [0]),

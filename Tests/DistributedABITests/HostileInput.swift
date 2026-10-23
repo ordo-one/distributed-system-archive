@@ -16,6 +16,8 @@ import Testing
             Hostile.init("result", [7, 1], as: Result<UInt8, Failure>.self, .discriminant(7)),
             Hostile.init("signed raw value", [0x80], as: Side.self, .discriminant(0x80)),
             Hostile.init("wide raw value", [0, 0], as: Venue.self, .discriminant(0)),
+            Hostile.init("empty inline array", [1], as: InlineArray<0, Int64>.self, .discriminant(1)),
+            Hostile.init("empty inline array in an array", [2, 0, 0xff], as: [InlineArray<0, UInt8>].self, .discriminant(255)),
             Hostile.init(
                 "128-bit raw value past 64 bits",
                 .init(repeating: 0, count: 8) + [1] + .init(repeating: 0, count: 7),
@@ -42,6 +44,13 @@ import Testing
             Hostile.init("wide set count past end", [2] + .init(repeating: 0, count: 9), as: Set<UInt64>.self, .count(2, remaining: 9)),
             Hostile.init("contiguous count past end", [2, 1, 0, 2], as: ContiguousArray<Int16>.self, .count(2, remaining: 3)),
             Hostile.init(
+                "inline array count past end",
+                [2] + .init(repeating: 0, count: 9),
+                as: [InlineArray<4, Int16>].self,
+                .count(2, remaining: 9)
+            ),
+            Hostile.init("composite count past end", [2] + .init(repeating: 0, count: 9), as: [Ladder].self, .count(2, remaining: 9)),
+            Hostile.init(
                 "wide dictionary count past end",
                 [2] + .init(repeating: 0, count: 17),
                 as: [UInt64: UInt64].self,
@@ -55,6 +64,8 @@ import Testing
             ),
             // an entry whose least size cannot be represented
             Hostile.init("entry size past Int.max", [1, 0, 0], as: [Oversized: UInt8].self, .count(1, remaining: 2)),
+            // an inline array whose fixed size cannot be represented, which states none
+            Hostile.init("inline size past Int.max", [1, 1, 2], as: [InlineArray<2, Oversized>].self, .expected(.max, encountered: 1)),
             // malformed ULEB128
             Hostile.init(
                 "count over Int.max",
@@ -75,19 +86,30 @@ import Testing
             Hostile.init("missing count", [], as: [String: Int].self, .expected(1, encountered: 0)),
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
             Hostile.init("contiguous array cut short", [2, 1, 0x61], as: ContiguousArray<String>.self, .expected(1, encountered: 0)),
+            Hostile.init("inline array cut short", [1, 0, 0, 0, 2, 0], as: InlineArray<2, UInt32>.self, .expected(4, encountered: 2)),
+            Hostile.init("inline strings cut short", [2, 0x61, 0x62], as: InlineArray<2, String>.self, .expected(1, encountered: 0)),
+            Hostile.init("empty inline array without its byte", [], as: InlineArray<0, String>.self, .expected(1, encountered: 0)),
             // the length of a contiguous value, whose two-byte form is read inline
             Hostile.init("overlong zero length", [0x80, 0x00], as: Row.self, .malformed(remaining: 0)),
             Hostile.init("two-byte length past end", [0x80, 0x01, 9], as: Row.self, .count(128, remaining: 1)),
             Hostile.init("truncated two-byte length", [0x80], as: Row.self, .expected(1, encountered: 0)),
             // bytes left over after the last element
             Hostile.init("bytes left over after elements", [1, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
+            Hostile.init(
+                "bytes left over after an empty inline array",
+                [0, 0],
+                as: InlineArray<0, UInt8>.self,
+                .expected(0, encountered: 1)
+            ),
             // an element of fixed size that reads fewer bytes than its type states
             Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
             Hostile.init("fixed-size key read short", [1, 5, 6, 7], as: [Undersized: UInt8].self, .expected(2, encountered: 1)),
+            Hostile.init("fixed-size inline element read short", [5, 6], as: InlineArray<1, Undersized>.self, .expected(2, encountered: 1)),
             // and one that reads more, wherever a collection reads it
             Hostile.init("fixed-size element read long", [1, 5, 6], as: [Overreader].self, .expected(1, encountered: 2)),
             Hostile.init("fixed-size key read long", [1, 5, 6, 7], as: [Overreader: UInt8].self, .expected(1, encountered: 2)),
             Hostile.init("fixed-size value read long", [1, 7, 5, 6], as: [UInt8: Overreader].self, .expected(1, encountered: 2)),
+            Hostile.init("fixed-size inline element read long", [5, 6], as: InlineArray<1, Overreader>.self, .expected(1, encountered: 2)),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),
