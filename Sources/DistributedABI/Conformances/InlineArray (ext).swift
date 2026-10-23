@@ -4,9 +4,10 @@ extension InlineArray: Transferable where Element: Transferable {
     /// inline array writes one zero byte instead, since every value takes at least one, and
     /// any other byte in its place is a ``TransferError/Kind/discriminant(_:)`` error.
     ///
-    /// The fixed size is one byte when the count is zero, and otherwise the count times the
-    /// element’s fixed size, so that a composite holding an inline array keeps a fixed size.
-    /// It is nil when the element has none, or when the product overflows `Int`.
+    /// The fixed size is one byte when the count is zero. Otherwise it is the count times the
+    /// element’s fixed size, when the element states one and the product fits in `Int`, so
+    /// that a composite holding an inline array keeps a fixed size. In any other case it is
+    /// nil.
     @inlinable public static var fixedTransferSize: Int? {
         if  count == 0 {
             return 1

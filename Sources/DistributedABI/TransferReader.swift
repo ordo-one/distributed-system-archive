@@ -106,13 +106,18 @@ extension TransferReader {
     }
 
     /// One value as the element of a collection, read through its
-    /// ``Transferable/init(transferring:)``. A value whose type states a
-    /// ``Transferable/fixedTransferSize`` must read exactly that many bytes, or the read is
-    /// refused with ``TransferError/Kind/expected(_:encountered:)``, carrying the fixed size
-    /// and then the number of bytes the value read: a faulty conformer that read fewer or more
-    /// would otherwise shift every element after it, with nothing around the element to catch
-    /// it. A collection of one’s own reads each of its elements, or each key and each value of
-    /// an entry, through this rather than through the element’s own initializer.
+    /// ``Transferable/init(transferring:)``, whose errors propagate unchanged.
+    ///
+    /// Once that initializer has succeeded, a value whose type states a
+    /// ``Transferable/fixedTransferSize`` must have consumed exactly that many bytes, or the
+    /// read is refused with ``TransferError/Kind/expected(_:encountered:)``, carrying the fixed
+    /// size and then the number of bytes the value consumed: a faulty conformer that read fewer
+    /// or more would otherwise shift every element after it, with nothing around the element
+    /// to catch it. The check follows the read rather than bounding it, so a `UInt32` read
+    /// from two bytes throws its own `.expected(4, encountered: 2)`, having consumed nothing.
+    ///
+    /// A collection of one’s own reads each of its elements, or each key and each value of an
+    /// entry, through this rather than through the element’s own initializer.
     @inlinable public mutating func takeElement<Element>(
         _: Element.Type
     ) throws(TransferError) -> Element where Element: Transferable {
