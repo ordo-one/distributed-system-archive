@@ -5,9 +5,10 @@ extension TransferError {
         /// that read more or fewer bytes than its type states reports that size, then the number
         /// it read.
         case expected(Int, encountered: Int)
-        /// A count or length past the bytes remaining, or a malformed ULEB128 number (overlong,
-        /// or over `Int.max`), which reports a count of -1.
+        /// A count or length past the bytes remaining.
         case count(Int, remaining: Int)
+        /// A malformed ULEB128 number: overlong, past 64 bits, or over `Int.max`.
+        case malformed(remaining: Int)
         /// A `Bool`, `Optional` or `Result` discriminant byte out of range, or an integer raw
         /// value with no case, as the unsigned number its bits form on the wire: all of them
         /// for every standard integer, and the low 128 for a wider one.

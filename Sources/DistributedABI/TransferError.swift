@@ -24,11 +24,9 @@ extension TransferError: CustomStringConvertible {
                 "expected \(expected) byte(s), but \(encountered) remain"
             }
         case .count(let count, remaining: let remaining):
-            if  count < 0 {
-                "malformed ULEB128 number, with \(remaining) byte(s) remaining"
-            } else {
-                "count or length \(count) exceeds the \(remaining) byte(s) remaining"
-            }
+            "count or length \(count) exceeds the \(remaining) byte(s) remaining"
+        case .malformed(remaining: let remaining):
+            "malformed ULEB128 number, with \(remaining) byte(s) remaining"
         case .discriminant(let code):
             "invalid discriminant (\(code))"
         case .duplicate(let position):

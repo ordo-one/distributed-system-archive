@@ -78,7 +78,7 @@ import Testing
             (.expected(8, encountered: 3), "expected 8 byte(s), but 3 remain"),
             (.expected(0, encountered: 2), "expected end of input, but 2 byte(s) remain"),
             (.count(9, remaining: 1), "count or length 9 exceeds the 1 byte(s) remaining"),
-            (.count(-1, remaining: 0), "malformed ULEB128 number, with 0 byte(s) remaining"),
+            (.malformed(remaining: 0), "malformed ULEB128 number, with 0 byte(s) remaining"),
             (.discriminant(2), "invalid discriminant (2)"),
             (.duplicate(3), "duplicate element at position [3]"),
             (.payload(Row.Refusal.empty), "empty"),

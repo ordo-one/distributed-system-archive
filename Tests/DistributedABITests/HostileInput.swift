@@ -59,17 +59,17 @@ import Testing
                 "count over Int.max",
                 [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01],
                 as: [UInt8].self,
-                .count(-1, remaining: 0)
+                .malformed(remaining: 0)
             ),
             Hostile.init(
                 "count over 64 bits",
                 [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f],
                 as: [UInt8].self,
-                .count(-1, remaining: 0)
+                .malformed(remaining: 0)
             ),
-            Hostile.init("eleven-byte count", .init(repeating: 0x80, count: 10) + [0x01], as: [UInt8].self, .count(-1, remaining: 0)),
-            Hostile.init("overlong zero", [0x80, 0x00], as: [UInt8].self, .count(-1, remaining: 0)),
-            Hostile.init("overlong one", [0x81, 0x00, 0x09], as: [UInt8].self, .count(-1, remaining: 1)),
+            Hostile.init("eleven-byte count", .init(repeating: 0x80, count: 10) + [0x01], as: [UInt8].self, .malformed(remaining: 0)),
+            Hostile.init("overlong zero", [0x80, 0x00], as: [UInt8].self, .malformed(remaining: 0)),
+            Hostile.init("overlong one", [0x81, 0x00, 0x09], as: [UInt8].self, .malformed(remaining: 1)),
             Hostile.init("truncated count", [0x80], as: [UInt8].self, .expected(1, encountered: 0)),
             Hostile.init("missing count", [], as: [String: Int].self, .expected(1, encountered: 0)),
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),

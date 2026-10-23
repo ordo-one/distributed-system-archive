@@ -128,13 +128,13 @@ extension TransferReader {
 
             let bits: UInt = .init(byte & 0x7f)
             guard shift < UInt.bitWidth, (bits &<< shift) &>> shift == bits else {
-                throw .init(.count(-1, remaining: self.remaining))
+                throw .init(.malformed(remaining: self.remaining))
             }
             value |= bits &<< shift
 
             if  byte & 0x80 == 0 {
                 guard byte != 0 || shift == 0 else {
-                    throw .init(.count(-1, remaining: self.remaining))
+                    throw .init(.malformed(remaining: self.remaining))
                 }
                 break
             }
@@ -142,7 +142,7 @@ extension TransferReader {
         }
         guard
         let value: Int = .init(exactly: value) else {
-            throw .init(.count(-1, remaining: self.remaining))
+            throw .init(.malformed(remaining: self.remaining))
         }
         return value
     }
