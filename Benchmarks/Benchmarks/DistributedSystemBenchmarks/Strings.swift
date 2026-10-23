@@ -29,6 +29,16 @@ import Foundation
     value.transferSize
 }
 
+/// The write pass alone, into a frame the caller sized for the value before the measurement.
+@inline(never) func write<Value>(
+    sized value: Value,
+    into frame: UnsafeMutableRawBufferPointer
+) -> Int where Value: Transferable {
+    var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
+    output.withTransferWriter { value.transfer(into: &$0) }
+    return output.finalize(for: frame)
+}
+
 /// The read pass alone, from a frame the write pass filled.
 @inline(never) func read<Value>(
     _: Value.Type,
@@ -65,7 +75,7 @@ func registerStringBenchmarks() {
         }
         benchmark.startMeasurement()
         for _ in benchmark.scaledIterations {
-            blackHole(send(batch, into: frame))
+            blackHole(write(sized: batch, into: frame))
         }
     }
     Benchmark.init("Standard ReadStringBatch", configuration: config) { benchmark in
