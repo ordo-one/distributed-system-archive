@@ -40,6 +40,10 @@ import Testing
             (["ab", ""], [2, 2, 0x61, 0x62, 0]),
             (["a", nil] as [String?], [2, 1, 1, 0x61, 0]),
             ([[1], []] as [[UInt8]], [2, 1, 1, 0]),
+            // a contiguous array takes the bytes of an array with the same elements
+            ([] as ContiguousArray<UInt8>, [0]),
+            ([1, 2] as ContiguousArray<Int16>, [2, 1, 0, 2, 0]),
+            (["ab", ""] as ContiguousArray<String>, [2, 2, 0x61, 0x62, 0]),
             ([5] as Set<UInt8>, [1, 5]),
             (["ab"] as Set<String>, [1, 2, 0x61, 0x62]),
             ([7: "x"] as [UInt8: String], [1, 7, 1, 0x78]),

@@ -40,6 +40,7 @@ import Testing
             Hostile.init("set count of Int.max", Self.intMax, as: Set<UInt8>.self, .count(.max, remaining: 0)),
             // counts within the bytes present, but not at the width of a fixed-size element
             Hostile.init("wide set count past end", [2] + .init(repeating: 0, count: 9), as: Set<UInt64>.self, .count(2, remaining: 9)),
+            Hostile.init("contiguous count past end", [2, 1, 0, 2], as: ContiguousArray<Int16>.self, .count(2, remaining: 3)),
             Hostile.init(
                 "wide dictionary count past end",
                 [2] + .init(repeating: 0, count: 17),
@@ -73,6 +74,7 @@ import Testing
             Hostile.init("truncated count", [0x80], as: [UInt8].self, .expected(1, encountered: 0)),
             Hostile.init("missing count", [], as: [String: Int].self, .expected(1, encountered: 0)),
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
+            Hostile.init("contiguous array cut short", [2, 1, 0x61], as: ContiguousArray<String>.self, .expected(1, encountered: 0)),
             // the length of a contiguous value, whose two-byte form is read inline
             Hostile.init("overlong zero length", [0x80, 0x00], as: Row.self, .malformed(remaining: 0)),
             Hostile.init("two-byte length past end", [0x80, 0x01, 9], as: Row.self, .count(128, remaining: 1)),

@@ -98,6 +98,9 @@ import Foundation
             ["a", nil, ""] as [String?],
             [true, false, true],
             [1, 2, 3, 4][1...] as ArraySlice<Int>,
+            [] as ContiguousArray<String>,
+            ["", "a", "abc"] as ContiguousArray<String>,
+            [0, 1, .min, .max] as ContiguousArray<Int>,
             [] as Set<String>,
             ["", "a", "abc"] as Set<String>,
             [[], [""], ["", "a"]] as Set<Set<String>>,
@@ -145,8 +148,9 @@ import Foundation
     }
 }
 extension Roundtrips {
-    /// Every value round-trips alone, as the element of an array and wrapped in an optional,
-    /// and writes exactly the bytes it states each time.
+    /// Every value round-trips alone, as the element of an array, as the element of a
+    /// contiguous array, which takes the array’s bytes, and wrapped in an optional, and writes
+    /// exactly the bytes it states each time.
     private static func roundtrip<Value>(_ value: Value) throws
         where Value: Transferable & Equatable {
         let bytes: [UInt8] = .init(transferring: value)
@@ -157,6 +161,11 @@ extension Roundtrips {
         let elements: [UInt8] = .init(transferring: array)
         #expect(elements.count == array.transferSize)
         #expect(try [Value].decode(elements) == array)
+
+        let contiguous: ContiguousArray<Value> = .init(array)
+        #expect([UInt8].init(transferring: contiguous) == elements)
+        #expect(contiguous.transferSize == elements.count)
+        #expect(try ContiguousArray<Value>.decode(elements) == contiguous)
 
         let optional: Value? = value
         #expect(try Value?.decode(.init(transferring: optional)) == optional)
