@@ -3,7 +3,7 @@ extension Optional: Transferable where Wrapped: Transferable {
     /// value’s bytes.
     @inlinable public var transferSize: Int { 1 + (self?.transferSize ?? 0) }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable @inline(always) public func transfer(into output: inout OutputRawSpan) {
         if  let self: Wrapped {
             output.append(1)
             self.transfer(into: &output)
