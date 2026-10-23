@@ -37,7 +37,7 @@ extension Batch: RangeReplaceableCollection {
     }
 }
 extension Batch: Transferable where Element: Transferable {
-    var transferSize: Int { self.elements.span.elementsTransferSize }
+    var transferSize: Int { self.elements.span.arrayTransferSize }
 
     func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.elements.count))

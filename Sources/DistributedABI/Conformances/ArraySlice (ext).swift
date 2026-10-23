@@ -5,7 +5,7 @@ extension ArraySlice: Transferable where Element: Transferable {
         if  let size: Int = Element.fixedTransferSize {
             return ULEB128.size(UInt.init(self.count)) + self.count * size
         }
-        return self.span.elementsTransferSize
+        return self.span.arrayTransferSize
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
