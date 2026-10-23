@@ -370,7 +370,6 @@ extension Bitwise {
         let remaining: Int
     }
 
-    /// The error decoding `bytes` reports, or nil when they decode.
     /// The error decoding `bytes` reports, with the number of bytes the reader had left when it
     /// did, or nil when they decode.
     static func refusal<Value>(_ bytes: [UInt8], as _: Value.Type) -> Refusal? where Value: Transferable {
