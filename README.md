@@ -98,16 +98,21 @@ The `payload` kind carries the type’s own error unchanged, which is how the tr
 | `String`, `Substring` | a ULEB128 length, then the UTF-8 bytes as they are, with no terminator; invalid UTF-8 is refused |
 | `Optional` | one byte, 0 for `nil` and 1 for a value, then the value |
 | `Result` | one byte, 0 for success and 1 for failure, then the payload |
-| `Array`, `ArraySlice`, `Set` | a ULEB128 count, then the elements one after another |
+| `Array`, `ArraySlice`, `ContiguousArray`, `Set` | a ULEB128 count, then the elements one after another |
+| `InlineArray` | the elements one after another, with no count; one zero byte when it has none |
 | `Dictionary` | a ULEB128 count, then each key and its value, one after another |
 | an enum with an integer raw value | its raw value; a raw value with no case is refused |
 
 A set or a dictionary that repeats an element or a key is refused. Set and dictionary elements travel in iteration order, which differs between processes, so equal values need not produce equal bytes.
 
+An inline array writes no count, because its count is part of its type, and it states a fixed size, the count times its element’s, whenever its element states one, so a composite that holds one keeps a fixed size of its own. An empty inline array still takes the one byte every value must, a zero, and any other byte in its place is refused.
+
+A collection of one’s own can travel exactly as an array or a dictionary does through the helpers the standard conformances use. `Span.elementsTransferSize` sizes elements as an array writes them, count included, and a range-replaceable collection reads itself as an array with `init(transferringElements:)`. Any other collection reads its count with `TransferReader.takeCount(of:)`, or a keyed one with `takeCount(keys:values:)`, which refuses, before anything is reserved, a count the bytes remaining could not hold, and then reads each element, or each key and its value, with `takeElement(_:)`, which holds an element of fixed size to exactly that many bytes.
+
 
 ## Building and using the library
 
-DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The unsafe operations in the library are the memcpy inside `TransferWriter.append(bytes:)` and, in the string conformances, the view of a native string’s UTF-8 storage as a span for that copy, because the standard library lends that storage to inlinable code only as a pointer; no public declaration mentions an unsafe pointer. The deployment target is macOS 26 or iOS 26 because of the UTF-8 APIs the string conformances use, `UTF8Span`, `String.utf8Span` and `String.init(copying:)`, and because of `Array.span`, through which an array sizes elements of variable size; all four are new there, while `RawSpan` and `OutputRawSpan` back-deploy to earlier releases. Building the package takes Swift 6.3 or later, as its manifests state, for the `@inline(always)` attribute of SE-0496.
+DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The unsafe operations in the library are the memcpy inside `TransferWriter.append(bytes:)` and, in the string conformances, the view of a native string’s UTF-8 storage as a span for that copy, because the standard library lends that storage to inlinable code only as a pointer; no public declaration mentions an unsafe pointer. The deployment target is macOS 26 or iOS 26 because of the UTF-8 APIs the string conformances use, `UTF8Span`, `String.utf8Span` and `String.init(copying:)`, because of `Array.span`, through which an array sizes elements of variable size, and because of `InlineArray`; all five are new there, while `RawSpan` and `OutputRawSpan` back-deploy to earlier releases. Building the package takes Swift 6.3 or later, as its manifests state, for the `@inline(always)` attribute of SE-0496.
 
 
 ## Version 8 and earlier versions
