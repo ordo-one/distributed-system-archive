@@ -161,6 +161,19 @@ import Testing
         #expect(try [Oversized: UInt8].decode(bytes) == empty)
     }
 
+    /// An inline array of elements whose fixed size is `Int.max` states the one byte it writes
+    /// when it has no elements and the element’s size when it has one, but no fixed size at
+    /// all when it has two, where the product overflows, rather than the wrapped product.
+    @Test(
+        arguments: [
+            (InlineArray<0, Oversized>.fixedTransferSize, 1),
+            (InlineArray<1, Oversized>.fixedTransferSize, .max),
+            (InlineArray<2, Oversized>.fixedTransferSize, nil),
+        ] as [(Int?, Int?)]
+    ) static func OversizedInlineArrays(_ stated: Int?, _ expected: Int?) {
+        #expect(stated == expected)
+    }
+
     /// A conformer’s error arrives unchanged, so the transport can tell a refusal from damage.
     @Test static func PayloadUnchanged() throws {
         let error: TransferError = try #require(throws: TransferError.self) {
