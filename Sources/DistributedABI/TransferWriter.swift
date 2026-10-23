@@ -3,7 +3,8 @@
 ///
 /// The writer holds the `OutputRawSpan` the transport lends it, for the duration of one
 /// ``Swift/OutputRawSpan/withTransferWriter(_:)``, and carries the library’s wire helpers, so
-/// that they stay off the standard library’s type. Every member is inlined into the client.
+/// that they stay off the standard library’s type. Every member is `@inlinable`, and the
+/// multibyte length helper is emitted into the client and kept out of line.
 /// The writer owns the span while it writes, since a writer that borrowed it would have to
 /// hold a pointer; taking the span in and giving it back costs a copy of its three words
 /// where the transport holds it in memory, measured at a dozen instructions per write.
