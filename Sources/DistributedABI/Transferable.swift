@@ -1,9 +1,11 @@
 /// A value the transport can carry.
 ///
 /// A conformer states the exact size of its wire form, writes exactly that many bytes into
-/// memory the destination owns, and reads itself back from bytes it borrows. It never frames
-/// itself: the container that holds it (the transport for an argument, a collection for an
-/// element, a composite for a field) records the length wherever the length is not fixed.
+/// memory the destination owns, and reads itself back from bytes it borrows. Every value
+/// delimits itself on the wire: a leaf of variable size (a string, a serialized message)
+/// writes its ULEB128 length before its bytes, a collection its count, an optional its
+/// discriminant, so a container or a composite writes its parts one after another and reads
+/// them back in the same order, with no length of its own around any of them.
 ///
 /// A value whose memory already is its wire form should conform to ``ContiguousTransferable``
 /// instead, which supplies all three requirements from the bytes it lends.
@@ -21,28 +23,13 @@ public protocol Transferable: Sendable {
     /// Writes exactly ``transferSize`` bytes into `output`, which has room for them.
     func transfer(into output: inout OutputRawSpan)
 
-    /// Reads one value from `input`.
-    ///
-    /// A value of variable size that its container framed finds exactly its own bytes in
-    /// `input`; a value of fixed size, or a composite, reads its parts in order. The bytes are
-    /// borrowed from the transport’s buffer, and a value that keeps them copies them.
+    /// Reads one value from `input`, consuming exactly the bytes ``transfer(into:)`` wrote for
+    /// it and no more: the parts that follow it in `input` belong to the values after it. The
+    /// bytes are borrowed from the transport’s buffer, and a value that keeps them copies them.
     init(transferring input: inout TransferReader) throws(TransferError)
 }
 extension Transferable {
     @inlinable public static var fixedTransferSize: Int? { nil }
-}
-extension Transferable {
-    /// The size of this value as the part of a container: its bytes, preceded by a ULEB128
-    /// length unless its type has a fixed size. This is what ``OutputRawSpan/append(framed:)``
-    /// writes.
-    @inlinable public var framedTransferSize: Int {
-        let size: Int = self.transferSize
-        if  case nil = Self.fixedTransferSize {
-            return ULEB128.size(UInt.init(size)) + size
-        } else {
-            return size
-        }
-    }
 }
 extension Transferable
     where Self: FixedWidthInteger & BitwiseCopyable & ConvertibleFromBytes & ConvertibleToBytes {

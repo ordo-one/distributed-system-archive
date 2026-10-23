@@ -11,17 +11,17 @@ import DistributedABI
 //
 //  These are SELF-CONTAINED replicas with NO SDK dependency, and their `Transferable`
 //  conformances are written the way a hand-written composite conforms in DistributedABI 8.0:
-//    * a struct writes each stored field in declaration order through `append(framed:)`, and
-//      reads it back in the same order through `take(framed:)`: a field whose type has a
-//      fixed size is packed, any other is preceded by its ULEB128 length;
+//    * a struct writes each stored field in declaration order through `transfer(into:)`, and
+//      reads it back in the same order through `init(transferring:)`: every value delimits
+//      itself, so the struct writes nothing around a field;
 //    * a struct whose fields all have a fixed size states the sum as its own fixed size;
 //    * Optional   = 1 discriminant byte (0 = none, 1 = some) then the wrapped value if some;
 //    * fixed-width integer = little-endian raw bytes;
-//    * String     = the UTF-8 bytes, framed by the container;
+//    * String     = a ULEB128 length, then the UTF-8 bytes;
 //    * enum (raw) = the UInt8 raw value, through the library’s `RawRepresentable` default;
-//    * enum (associated values) = UInt8 discriminant then the payload, which its container
-//      frames, as `Optional` and `Result` do;
-//    * Collection = ULEB128 count then each element (packed or framed, as above).
+//    * enum (associated values) = UInt8 discriminant then the payload, as `Optional` and
+//      `Result` do;
+//    * Collection = ULEB128 count then each element one after another.
 //
 //  In production these shapes are SBE rows, which lend their bytes unchanged; the replicas
 //  measure what a composite that does serialize costs.
@@ -38,12 +38,12 @@ extension MarketIdLike: Transferable {
     var transferSize: Int { 9 }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.value)
-        output.append(framed: self.flags)
+        self.value.transfer(into: &output)
+        self.flags.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        let value: UInt64 = try input.take(framed: UInt64.self)
-        let flags: UInt8 = try input.take(framed: UInt8.self)
+        let value: UInt64 = try .init(transferring: &input)
+        let flags: UInt8 = try .init(transferring: &input)
         self.init(value: value, flags: flags)
     }
 }
@@ -120,69 +120,69 @@ struct PublicOrderLike: Equatable {
 }
 extension PublicOrderLike: Transferable {
     var transferSize: Int {
-        self.identifier.framedTransferSize
-            + self.marketDataSource.framedTransferSize
-            + self.market.framedTransferSize
-            + self.exchangeOrderReference.framedTransferSize
-            + self.instrument.framedTransferSize
-            + self.side.framedTransferSize
-            + self.price.framedTransferSize
-            + self.quantity.framedTransferSize
-            + self.state.framedTransferSize
-            + self.count.framedTransferSize
-            + self.priority.framedTransferSize
-            + self.publicOrderTime.framedTransferSize
-            + self.timeCreated.framedTransferSize
-            + self.timeUpdated.framedTransferSize
-            + self.updatedByPlugin.framedTransferSize
-            + self.updatedByModule.framedTransferSize
-            + self.sourcePublicOrderRecoveryReference.framedTransferSize
-            + self.dateOfOrder.framedTransferSize
-            + self.type.framedTransferSize
+        self.identifier.transferSize
+            + self.marketDataSource.transferSize
+            + self.market.transferSize
+            + self.exchangeOrderReference.transferSize
+            + self.instrument.transferSize
+            + self.side.transferSize
+            + self.price.transferSize
+            + self.quantity.transferSize
+            + self.state.transferSize
+            + self.count.transferSize
+            + self.priority.transferSize
+            + self.publicOrderTime.transferSize
+            + self.timeCreated.transferSize
+            + self.timeUpdated.transferSize
+            + self.updatedByPlugin.transferSize
+            + self.updatedByModule.transferSize
+            + self.sourcePublicOrderRecoveryReference.transferSize
+            + self.dateOfOrder.transferSize
+            + self.type.transferSize
     }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.identifier)
-        output.append(framed: self.marketDataSource)
-        output.append(framed: self.market)
-        output.append(framed: self.exchangeOrderReference)
-        output.append(framed: self.instrument)
-        output.append(framed: self.side)
-        output.append(framed: self.price)
-        output.append(framed: self.quantity)
-        output.append(framed: self.state)
-        output.append(framed: self.count)
-        output.append(framed: self.priority)
-        output.append(framed: self.publicOrderTime)
-        output.append(framed: self.timeCreated)
-        output.append(framed: self.timeUpdated)
-        output.append(framed: self.updatedByPlugin)
-        output.append(framed: self.updatedByModule)
-        output.append(framed: self.sourcePublicOrderRecoveryReference)
-        output.append(framed: self.dateOfOrder)
-        output.append(framed: self.type)
+        self.identifier.transfer(into: &output)
+        self.marketDataSource.transfer(into: &output)
+        self.market.transfer(into: &output)
+        self.exchangeOrderReference.transfer(into: &output)
+        self.instrument.transfer(into: &output)
+        self.side.transfer(into: &output)
+        self.price.transfer(into: &output)
+        self.quantity.transfer(into: &output)
+        self.state.transfer(into: &output)
+        self.count.transfer(into: &output)
+        self.priority.transfer(into: &output)
+        self.publicOrderTime.transfer(into: &output)
+        self.timeCreated.transfer(into: &output)
+        self.timeUpdated.transfer(into: &output)
+        self.updatedByPlugin.transfer(into: &output)
+        self.updatedByModule.transfer(into: &output)
+        self.sourcePublicOrderRecoveryReference.transfer(into: &output)
+        self.dateOfOrder.transfer(into: &output)
+        self.type.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            identifier: try input.take(framed: UInt64.self),
-            marketDataSource: try input.take(framed: UInt64?.self),
-            market: try input.take(framed: MarketIdLike?.self),
-            exchangeOrderReference: try input.take(framed: String?.self),
-            instrument: try input.take(framed: UInt64.self),
-            side: try input.take(framed: SideLike.self),
-            price: try input.take(framed: Int64?.self),
-            quantity: try input.take(framed: Int64?.self),
-            state: try input.take(framed: UInt8?.self),
-            count: try input.take(framed: Int?.self),
-            priority: try input.take(framed: UInt64?.self),
-            publicOrderTime: try input.take(framed: UInt64?.self),
-            timeCreated: try input.take(framed: UInt64.self),
-            timeUpdated: try input.take(framed: UInt64?.self),
-            updatedByPlugin: try input.take(framed: UInt64?.self),
-            updatedByModule: try input.take(framed: UInt64?.self),
-            sourcePublicOrderRecoveryReference: try input.take(framed: String?.self),
-            dateOfOrder: try input.take(framed: UInt32.self),
-            type: try input.take(framed: OrderTypeLike?.self)
+            identifier: try .init(transferring: &input),
+            marketDataSource: try .init(transferring: &input),
+            market: try .init(transferring: &input),
+            exchangeOrderReference: try .init(transferring: &input),
+            instrument: try .init(transferring: &input),
+            side: try .init(transferring: &input),
+            price: try .init(transferring: &input),
+            quantity: try .init(transferring: &input),
+            state: try .init(transferring: &input),
+            count: try .init(transferring: &input),
+            priority: try .init(transferring: &input),
+            publicOrderTime: try .init(transferring: &input),
+            timeCreated: try .init(transferring: &input),
+            timeUpdated: try .init(transferring: &input),
+            updatedByPlugin: try .init(transferring: &input),
+            updatedByModule: try .init(transferring: &input),
+            sourcePublicOrderRecoveryReference: try .init(transferring: &input),
+            dateOfOrder: try .init(transferring: &input),
+            type: try .init(transferring: &input)
         )
     }
 }
@@ -201,17 +201,17 @@ extension SemVerLike: Transferable {
     var transferSize: Int { 8 }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.major)
-        output.append(framed: self.minor)
-        output.append(framed: self.patch)
-        output.append(framed: self.preRelease)
+        self.major.transfer(into: &output)
+        self.minor.transfer(into: &output)
+        self.patch.transfer(into: &output)
+        self.preRelease.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            major: try input.take(framed: UInt16.self),
-            minor: try input.take(framed: UInt16.self),
-            patch: try input.take(framed: UInt16.self),
-            preRelease: try input.take(framed: UInt16.self)
+            major: try .init(transferring: &input),
+            minor: try .init(transferring: &input),
+            patch: try .init(transferring: &input),
+            preRelease: try .init(transferring: &input)
         )
     }
 }
@@ -226,27 +226,27 @@ struct ResourceDataDescLike: Equatable {
 }
 extension ResourceDataDescLike: Transferable {
     var transferSize: Int {
-        self.generation.framedTransferSize
-            + self.partition.framedTransferSize
-            + self.offset.framedTransferSize
-            + self.totalChunks.framedTransferSize
-            + self.sha256.framedTransferSize
+        self.generation.transferSize
+            + self.partition.transferSize
+            + self.offset.transferSize
+            + self.totalChunks.transferSize
+            + self.sha256.transferSize
     }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.generation)
-        output.append(framed: self.partition)
-        output.append(framed: self.offset)
-        output.append(framed: self.totalChunks)
-        output.append(framed: self.sha256)
+        self.generation.transfer(into: &output)
+        self.partition.transfer(into: &output)
+        self.offset.transfer(into: &output)
+        self.totalChunks.transfer(into: &output)
+        self.sha256.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            generation: try input.take(framed: UInt64.self),
-            partition: try input.take(framed: Int.self),
-            offset: try input.take(framed: Int.self),
-            totalChunks: try input.take(framed: UInt32.self),
-            sha256: try input.take(framed: String.self)
+            generation: try .init(transferring: &input),
+            partition: try .init(transferring: &input),
+            offset: try .init(transferring: &input),
+            totalChunks: try .init(transferring: &input),
+            sha256: try .init(transferring: &input)
         )
     }
 }
@@ -266,42 +266,42 @@ struct ResourceLike: Equatable {
 }
 extension ResourceLike: Transferable {
     var transferSize: Int {
-        self.identifier.framedTransferSize
-            + self.state.framedTransferSize
-            + self.version.framedTransferSize
-            + self.sha256.framedTransferSize
-            + self.symbol.framedTransferSize
-            + self.name.framedTransferSize
-            + self.originalFilesystemName.framedTransferSize
-            + self.timeCreated.framedTransferSize
-            + self.timeUpdated.framedTransferSize
-            + self.dataDescription.framedTransferSize
+        self.identifier.transferSize
+            + self.state.transferSize
+            + self.version.transferSize
+            + self.sha256.transferSize
+            + self.symbol.transferSize
+            + self.name.transferSize
+            + self.originalFilesystemName.transferSize
+            + self.timeCreated.transferSize
+            + self.timeUpdated.transferSize
+            + self.dataDescription.transferSize
     }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.identifier)
-        output.append(framed: self.state)
-        output.append(framed: self.version)
-        output.append(framed: self.sha256)
-        output.append(framed: self.symbol)
-        output.append(framed: self.name)
-        output.append(framed: self.originalFilesystemName)
-        output.append(framed: self.timeCreated)
-        output.append(framed: self.timeUpdated)
-        output.append(framed: self.dataDescription)
+        self.identifier.transfer(into: &output)
+        self.state.transfer(into: &output)
+        self.version.transfer(into: &output)
+        self.sha256.transfer(into: &output)
+        self.symbol.transfer(into: &output)
+        self.name.transfer(into: &output)
+        self.originalFilesystemName.transfer(into: &output)
+        self.timeCreated.transfer(into: &output)
+        self.timeUpdated.transfer(into: &output)
+        self.dataDescription.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            identifier: try input.take(framed: UInt64.self),
-            state: try input.take(framed: UInt8.self),
-            version: try input.take(framed: SemVerLike.self),
-            sha256: try input.take(framed: String?.self),
-            symbol: try input.take(framed: String.self),
-            name: try input.take(framed: String?.self),
-            originalFilesystemName: try input.take(framed: String?.self),
-            timeCreated: try input.take(framed: UInt64.self),
-            timeUpdated: try input.take(framed: UInt64?.self),
-            dataDescription: try input.take(framed: ResourceDataDescLike?.self)
+            identifier: try .init(transferring: &input),
+            state: try .init(transferring: &input),
+            version: try .init(transferring: &input),
+            sha256: try .init(transferring: &input),
+            symbol: try .init(transferring: &input),
+            name: try .init(transferring: &input),
+            originalFilesystemName: try .init(transferring: &input),
+            timeCreated: try .init(transferring: &input),
+            timeUpdated: try .init(transferring: &input),
+            dataDescription: try .init(transferring: &input)
         )
     }
 }
@@ -371,17 +371,17 @@ struct PropertyLike: Equatable {
 }
 extension PropertyLike: Transferable {
     var transferSize: Int {
-        self.identifier.framedTransferSize + self.value.framedTransferSize
+        self.identifier.transferSize + self.value.transferSize
     }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.identifier)
-        output.append(framed: self.value)
+        self.identifier.transfer(into: &output)
+        self.value.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            identifier: try input.take(framed: UInt64.self),
-            value: try input.take(framed: PropertyValueLike.self)
+            identifier: try .init(transferring: &input),
+            value: try .init(transferring: &input)
         )
     }
 }
@@ -394,21 +394,21 @@ struct ComputedPropertySubscriptionLike: Equatable {
 }
 extension ComputedPropertySubscriptionLike: Transferable {
     var transferSize: Int {
-        self.setIdentifier.framedTransferSize
-            + self.objects.framedTransferSize
-            + self.settings.framedTransferSize
+        self.setIdentifier.transferSize
+            + self.objects.transferSize
+            + self.settings.transferSize
     }
 
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.setIdentifier)
-        output.append(framed: self.objects)
-        output.append(framed: self.settings)
+        self.setIdentifier.transfer(into: &output)
+        self.objects.transfer(into: &output)
+        self.settings.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         self.init(
-            setIdentifier: try input.take(framed: UInt64.self),
-            objects: try input.take(framed: [UInt64].self),
-            settings: try input.take(framed: [PropertyLike].self)
+            setIdentifier: try .init(transferring: &input),
+            objects: try .init(transferring: &input),
+            settings: try .init(transferring: &input)
         )
     }
 }

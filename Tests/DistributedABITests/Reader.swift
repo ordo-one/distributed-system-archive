@@ -58,18 +58,18 @@ import Testing
     /// Several values read in order from one buffer, as a composite reads its fields.
     @Test static func Fields() throws {
         let bytes: [UInt8] = .init(capacity: 64) {
-            $0.append(framed: 0x0102 as UInt16)
-            $0.append(framed: "abc")
-            $0.append(framed: [1, 2] as [Int8])
-            $0.append(framed: nil as String?)
+            (0x0102 as UInt16).transfer(into: &$0)
+            "abc".transfer(into: &$0)
+            ([1, 2] as [Int8]).transfer(into: &$0)
+            (nil as String?).transfer(into: &$0)
         }
-        #expect(bytes == [0x02, 0x01, 3, 0x61, 0x62, 0x63, 3, 2, 1, 2, 1, 0])
+        #expect(bytes == [0x02, 0x01, 3, 0x61, 0x62, 0x63, 2, 1, 2, 0])
 
         var input: TransferReader = .init(bytes.span.bytes)
-        #expect(try input.take(framed: UInt16.self) == 0x0102)
-        #expect(try input.take(framed: String.self) == "abc")
-        #expect(try input.take(framed: [Int8].self) == [1, 2])
-        #expect(try input.take(framed: String?.self) == nil)
+        #expect(try UInt16.init(transferring: &input) == 0x0102)
+        #expect(try String.init(transferring: &input) == "abc")
+        #expect(try [Int8].init(transferring: &input) == [1, 2])
+        #expect(try String?.init(transferring: &input) == nil)
         try input.finish()
     }
 

@@ -1,7 +1,8 @@
 import DistributedABI
 
-/// A value that states a fixed size of two bytes but reads one, as a faulty conformer might:
-/// its container must refuse it, rather than read every later part from the wrong offset.
+/// A value that states a fixed size of two bytes but reads one, as a faulty conformer might.
+/// With every value delimiting itself, nothing around it frames it: the byte it leaves is read
+/// by whatever follows, and is seen only at the end of the input.
 struct Undersized: Transferable {
     let byte: UInt8
 

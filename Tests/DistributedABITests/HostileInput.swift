@@ -32,7 +32,7 @@ import Testing
             Hostile.init("count past end", [5, 1, 2], as: [UInt8].self, .count(5, remaining: 2)),
             Hostile.init("packed count past end", [2] + .init(repeating: 0, count: 9), as: [Int].self, .count(2, remaining: 9)),
             Hostile.init("length past end", [1, 5, 0x61], as: [String].self, .count(5, remaining: 1)),
-            Hostile.init("inner count past its frame", [1, 2, 3, 9, 9], as: [[UInt8]].self, .count(3, remaining: 1)),
+            Hostile.init("inner count past end", [1, 3, 9, 9], as: [[UInt8]].self, .count(3, remaining: 2)),
             Hostile.init("count of Int.max", Self.intMax, as: [UInt8].self, .count(.max, remaining: 0)),
             Hostile.init("count of 2^30", [0x80, 0x80, 0x80, 0x80, 0x04], as: [UInt64].self, .count(1 << 30, remaining: 0)),
             Hostile.init("dictionary count of Int.max", Self.intMax, as: [UInt8: UInt8].self, .count(.max, remaining: 0)),
@@ -73,15 +73,16 @@ import Testing
             Hostile.init("truncated count", [0x80], as: [UInt8].self, .expected(1, encountered: 0)),
             Hostile.init("missing count", [], as: [String: Int].self, .expected(1, encountered: 0)),
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
-            // an element that leaves bytes of its frame unread
-            Hostile.init("element left over", [1, 3, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
-            // an element of fixed size that reads fewer bytes than its type states
-            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
+            // bytes left over after the last element
+            Hostile.init("bytes left over after elements", [1, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
+            // an element of fixed size that reads fewer bytes than its type states: with no frame
+            // around it, the byte it left is seen only at the end of the input
+            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(0, encountered: 1)),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),
             // a conformer’s own refusal
-            Hostile.init("invalid UTF-8", [0xc3, 0x28], as: String.self, .payload),
+            Hostile.init("invalid UTF-8", [2, 0xc3, 0x28], as: String.self, .payload),
             Hostile.init("refused row", [1, 0], as: [Row].self, .payload),
         ]
     ) static func Refused(_ hostile: Hostile) throws {
@@ -117,7 +118,7 @@ import Testing
     /// A conformer’s error arrives unchanged, so the transport can tell a refusal from damage.
     @Test static func PayloadUnchanged() throws {
         let error: TransferError = try #require(throws: TransferError.self) {
-            try Row.decode([])
+            try Row.decode([0])
         }
         let refusal: Row.Refusal?
         if  case .payload(let error as Row.Refusal) = error.kind {

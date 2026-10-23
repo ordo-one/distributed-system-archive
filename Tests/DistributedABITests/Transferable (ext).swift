@@ -8,12 +8,4 @@ extension Transferable {
         try input.finish()
         return value
     }
-
-    /// Reads one value as the part of a container from all of `bytes`.
-    static func decode(framed bytes: [UInt8]) throws(TransferError) -> Self {
-        var input: TransferReader = .init(bytes.span.bytes)
-        let value: Self = try input.take(framed: Self.self)
-        try input.finish()
-        return value
-    }
 }

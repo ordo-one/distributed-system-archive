@@ -17,11 +17,6 @@ extension [UInt8] {
     init(transferring value: some Transferable) {
         self.init(capacity: value.transferSize) { value.transfer(into: &$0) }
     }
-
-    /// The bytes `value` writes as the part of a container.
-    init(framing value: some Transferable) {
-        self.init(capacity: value.framedTransferSize) { $0.append(framed: value) }
-    }
 }
 extension Array: Fuzzable where Element: Fuzzable {
     static var shape: Fuzz.Shape { .elements(Element.shape, ordered: true) }

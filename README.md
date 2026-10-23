@@ -3,13 +3,13 @@
 DistributedABI is the wire format of Ordo’s distributed calls: how an argument or a result becomes bytes in a network frame, and how those bytes become a value again on the other side. Version 8 is built on one idea. The transport moves a value’s bytes; it does not rebuild them.
 
 
-## A value lends its bytes, the container frames them
+## A value lends its bytes, and delimits itself
 
 Most of what crosses the wire already is its wire form. A message from the SBE SDK is a run of bytes laid out exactly as it is stored and sent, and an identifier is eight bytes. Such a value conforms to `ContiguousTransferable`: it lends its bytes for the duration of a closure, and it opens from a copy of bytes it is handed. Sending it costs one memcpy into the frame the transport allocated, and receiving it costs the one copy the value makes to own its bytes. Nothing is parsed or built on the way.
 
 A value that does serialize (an integer, a string, an optional, a collection) conforms to `Transferable` and writes itself straight into the frame. The library owns no buffer of its own, so there is no intermediate array and no second copy. A native string is copied from its own UTF-8 storage; a string bridged from an `NSString` whose storage is not UTF-8 is transcoded on the way, which may allocate.
 
-No value records its own length. The **container** that holds it does: the transport writes a ULEB128 length in front of every argument, a collection writes a count in front of its elements and a length in front of each element whose size varies, and a composite does the same for its fields. A ULEB128 number takes one byte up to 127 and two up to 16,383, so a typical message pays one or two bytes of framing.
+Every value delimits itself on the wire. A leaf whose size varies (a string, a serialized message) writes a ULEB128 length in front of its bytes; a collection writes a count in front of its elements; an optional writes a discriminant byte. A container or a composite therefore writes its parts one after another and reads them back in the same order, with no length of its own around any of them. A ULEB128 number takes one byte up to 127 and two up to 16,383, so a typical message pays one or two bytes of framing, and the transport, which once wrote that length itself, writes nothing in front of an argument.
 
 
 ## What a conformer implements
@@ -23,9 +23,9 @@ public protocol Transferable: Sendable {
 }
 ```
 
-The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with an `OutputRawSpan` over them. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the bytes it framed for that value. A type whose values all have the same size states it in `fixedTransferSize`, and a collection of such values packs them with no lengths in between; such a type must then read exactly that many bytes.
+The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with an `OutputRawSpan` over them. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the bytes, and the value consumes exactly the bytes it wrote. A type whose values all have the same size states it in `fixedTransferSize`, and a collection of such values packs them behind its count; such a type must then read exactly that many bytes.
 
-A composite writes its parts in order. `append(framed:)` and `take(framed:)` apply the container’s rule to one part: a part whose type has a fixed size goes in as it is, any other behind its ULEB128 length.
+A composite sums the sizes of its parts, writes them in order and reads them back in the same order. There is no second API for a part: `transferSize`, `transfer(into:)` and `init(transferring:)` are the whole of it.
 
 ```swift
 struct Quote: Transferable {
@@ -34,19 +34,19 @@ struct Quote: Transferable {
     let levels: [Int64]
 
     var transferSize: Int {
-        self.instrument.framedTransferSize
-            + self.venue.framedTransferSize
-            + self.levels.framedTransferSize
+        self.instrument.transferSize
+            + self.venue.transferSize
+            + self.levels.transferSize
     }
     func transfer(into output: inout OutputRawSpan) {
-        output.append(framed: self.instrument)
-        output.append(framed: self.venue)
-        output.append(framed: self.levels)
+        self.instrument.transfer(into: &output)
+        self.venue.transfer(into: &output)
+        self.levels.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        self.instrument = try input.take(framed: UInt64.self)
-        self.venue = try input.take(framed: String?.self)
-        self.levels = try input.take(framed: [Int64].self)
+        self.instrument = try .init(transferring: &input)
+        self.venue = try .init(transferring: &input)
+        self.levels = try .init(transferring: &input)
     }
 }
 ```
@@ -65,7 +65,7 @@ public protocol ContiguousTransferable: Transferable {
 }
 ```
 
-From those two, the protocol supplies all three requirements of `Transferable`: `transferSize` is the byte count of the lent span, `transfer(into:)` is one memcpy of it, and `init(transferring:)` opens the value over the bytes its container framed, or over exactly `fixedTransferSize` bytes when the type states a fixed size. A message type of the SDK needs nothing more than a bridge from its own span API:
+From those two, the protocol supplies all three requirements of `Transferable`: `transferSize` is the byte count of the lent span and of the ULEB128 length that precedes it, `transfer(into:)` is that length and one memcpy, and `init(transferring:)` reads the length and opens the value over that many bytes; a type that states a fixed size writes and reads its bytes alone. A message type of the SDK needs nothing more than a bridge from its own span API:
 
 ```swift
 extension ContiguousTransferable where Self: SerializedSpanDecodable {
@@ -93,11 +93,11 @@ The `payload` kind carries the type’s own error unchanged, which is how the tr
 | The standard integers, `Int8` to `UInt128` | its bytes, little-endian, fixed size |
 | `Bool` | one byte, 0 or 1 |
 | `Float`, `Double` | the bit pattern, little-endian, fixed size |
-| `String`, `Substring` | the UTF-8 bytes as they are, with no terminator; invalid UTF-8 is refused |
+| `String`, `Substring` | a ULEB128 length, then the UTF-8 bytes as they are, with no terminator; invalid UTF-8 is refused |
 | `Optional` | one byte, 0 for `nil` and 1 for a value, then the value |
 | `Result` | one byte, 0 for success and 1 for failure, then the payload |
-| `Array`, `ArraySlice`, `Set` | a ULEB128 count, then the elements, packed or each behind its length |
-| `Dictionary` | a ULEB128 count, then each key and its value, packed or each behind its length |
+| `Array`, `ArraySlice`, `Set` | a ULEB128 count, then the elements one after another |
+| `Dictionary` | a ULEB128 count, then each key and its value, one after another |
 | an enum with an integer raw value | its raw value; a raw value with no case is refused |
 
 A set or a dictionary that repeats an element or a key is refused. Set and dictionary elements travel in iteration order, which differs between processes, so equal values need not produce equal bytes.

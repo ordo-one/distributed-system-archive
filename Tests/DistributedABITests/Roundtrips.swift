@@ -77,12 +77,12 @@ import Foundation
         let native: String = .init(repeating: "é", count: count)
         let string: String = try Self.bridged(native)
         try #require(!string.isContiguousUTF8)
-        #expect([UInt8].init(transferring: string) == .init(native.utf8))
+        #expect([UInt8].init(transferring: string) == .init(transferring: native))
         try Self.roundtrip(string)
 
         let suffix: Substring = string.suffix(1)
         try #require(!suffix.isContiguousUTF8)
-        #expect([UInt8].init(transferring: suffix) == [0xc3, 0xa9])
+        #expect([UInt8].init(transferring: suffix) == [2, 0xc3, 0xa9])
         try Self.roundtrip(suffix)
     }
     #endif
@@ -145,17 +145,13 @@ import Foundation
     }
 }
 extension Roundtrips {
-    /// Every value round-trips alone, as the part of a container, as the element of an array
-    /// and wrapped in an optional, and writes exactly the bytes it states each time.
+    /// Every value round-trips alone, as the element of an array and wrapped in an optional,
+    /// and writes exactly the bytes it states each time.
     private static func roundtrip<Value>(_ value: Value) throws
         where Value: Transferable & Equatable {
         let bytes: [UInt8] = .init(transferring: value)
         #expect(bytes.count == value.transferSize)
         #expect(try Value.decode(bytes) == value)
-
-        let framed: [UInt8] = .init(framing: value)
-        #expect(framed.count == value.framedTransferSize)
-        #expect(try Value.decode(framed: framed) == value)
 
         let array: [Value] = [value, value]
         let elements: [UInt8] = .init(transferring: array)

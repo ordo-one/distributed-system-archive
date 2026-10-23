@@ -19,16 +19,16 @@ import Testing
             // the bit pattern, little-endian
             (1.0 as Float, [0x00, 0x00, 0x80, 0x3f]),
             (1.0 as Double, [0, 0, 0, 0, 0, 0, 0xf0, 0x3f]),
-            // UTF-8 as it is: no length, no terminator, no format byte
-            ("", []),
-            ("ab", [0x61, 0x62]),
-            ("a\0b", [0x61, 0x00, 0x62]),
-            ("é", [0xc3, 0xa9]),
-            ("xaby".dropFirst().dropLast() as Substring, [0x61, 0x62]),
+            // a ULEB128 length, then the UTF-8 as it is: no terminator, no format byte
+            ("", [0]),
+            ("ab", [2, 0x61, 0x62]),
+            ("a\0b", [3, 0x61, 0x00, 0x62]),
+            ("é", [2, 0xc3, 0xa9]),
+            ("xaby".dropFirst().dropLast() as Substring, [2, 0x61, 0x62]),
             // a discriminant byte, then the payload as it is
             (nil as Int?, [0]),
             (7 as UInt8?, [1, 7]),
-            ("ab" as String?, [1, 0x61, 0x62]),
+            ("ab" as String?, [1, 2, 0x61, 0x62]),
             (Result<UInt8, Failure>.success(9), [0, 9]),
             (Result<UInt8, Failure>.failure(.init(code: 2)), [1, 2, 0, 0, 0]),
             // a count, then fixed-size elements packed
@@ -36,10 +36,10 @@ import Testing
             ([1, 2] as [Int16], [2, 1, 0, 2, 0]),
             ([true] as [Bool], [1, 1]),
             ([.sell, .buy] as [Side], [2, 0xff, 0x01]),
-            // a count, then variable-size elements each behind a ULEB128 length
+            // a count, then variable-size elements one after another, each delimiting itself
             (["ab", ""], [2, 2, 0x61, 0x62, 0]),
-            (["a", nil] as [String?], [2, 2, 1, 0x61, 1, 0]),
-            ([[1], []] as [[UInt8]], [2, 2, 1, 1, 1, 0]),
+            (["a", nil] as [String?], [2, 1, 1, 0x61, 0]),
+            ([[1], []] as [[UInt8]], [2, 1, 1, 0]),
             ([5] as Set<UInt8>, [1, 5]),
             (["ab"] as Set<String>, [1, 2, 0x61, 0x62]),
             ([7: "x"] as [UInt8: String], [1, 7, 1, 0x78]),
@@ -54,10 +54,11 @@ import Testing
             // an integer raw value travels as the raw value
             (Side.sell, [0xff]),
             (Venue.primary, [0x02, 0x01]),
-            // a contiguous value lends its bytes unchanged
-            (Row.init(bytes: [3, 1, 4]), [3, 1, 4]),
+            // a contiguous value lends its bytes unchanged, behind its length when its size varies
+            (Row.init(bytes: [3, 1, 4]), [3, 3, 1, 4]),
             (Identifier.init(0x0102), [2, 1, 0, 0, 0, 0, 0, 0]),
-            // packed when the contiguous type states a fixed size, framed when it does not
+            // packed when the contiguous type states a fixed size, each behind its own length
+            // when it does not
             ([.init(1), .init(2)] as [Identifier], [2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]),
             ([.init(bytes: [3]), .init(bytes: [1, 4])] as [Row], [2, 1, 3, 2, 1, 4]),
         ] as [(any Transferable & Equatable, [UInt8])]
@@ -104,25 +105,25 @@ import Testing
             // an integer raw value: the size of the raw value
             Packing.init([.sell, .buy] as [Side], fixed: 1, [2, 0xff, 1]),
             Packing.init([.primary, .dark] as [Venue], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
-            // no fixed size: each element behind its ULEB128 length
+            // no fixed size: each element one after another, delimiting itself
             Packing.init(["a", ""] as [String], fixed: nil, [2, 1, 0x61, 0]),
             Packing.init(["a"] as [Substring], fixed: nil, [1, 1, 0x61]),
-            Packing.init([7, nil] as [UInt8?], fixed: nil, [2, 2, 1, 7, 1, 0]),
-            Packing.init([[1], []] as [[UInt8]], fixed: nil, [2, 2, 1, 1, 1, 0]),
-            Packing.init([[1][...]] as [ArraySlice<UInt8>], fixed: nil, [1, 2, 1, 1]),
-            Packing.init([[5]] as [Set<UInt8>], fixed: nil, [1, 2, 1, 5]),
-            Packing.init([[1: 2]] as [[UInt8: UInt8]], fixed: nil, [1, 3, 1, 1, 2]),
+            Packing.init([7, nil] as [UInt8?], fixed: nil, [2, 1, 7, 0]),
+            Packing.init([[1], []] as [[UInt8]], fixed: nil, [2, 1, 1, 0]),
+            Packing.init([[1][...]] as [ArraySlice<UInt8>], fixed: nil, [1, 1, 1]),
+            Packing.init([[5]] as [Set<UInt8>], fixed: nil, [1, 1, 5]),
+            Packing.init([[1: 2]] as [[UInt8: UInt8]], fixed: nil, [1, 1, 1, 2]),
             // deliberately none, whether the payloads differ in size
             Packing.init(
                 [.success(9), .failure(.init(code: 2))] as [Result<UInt8, Failure>],
                 fixed: nil,
-                [2, 2, 0, 9, 5, 1, 2, 0, 0, 0]
+                [2, 0, 9, 1, 2, 0, 0, 0]
             ),
             // or have the same fixed size
             Packing.init(
                 [.success(9), .failure(.init(code: 2))] as [Result<UInt32, Failure>],
                 fixed: nil,
-                [2, 5, 0, 9, 0, 0, 0, 5, 1, 2, 0, 0, 0]
+                [2, 0, 9, 0, 0, 0, 1, 2, 0, 0, 0]
             ),
         ]
     ) static func FixedSizes(_ packing: Packing) throws {

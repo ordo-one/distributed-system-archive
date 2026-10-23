@@ -3,16 +3,16 @@ extension Fuzz {
     indirect enum Shape: Sendable {
         /// A value of fixed size, packed in place.
         case fixed(Int)
-        /// A value of variable size with no parts to order: every byte its container framed
-        /// for it.
+        /// A value of variable size with no parts to order: a ULEB128 length, then that many
+        /// bytes.
         case opaque
         /// A discriminant byte, then the payload of that case, if it has one.
         case cases([Shape?])
-        /// A ULEB128 count, then the elements, each behind its ULEB128 length unless it has a
-        /// fixed size; in an order that carries no meaning unless `ordered`.
+        /// A ULEB128 count, then the elements one after another; in an order that carries no
+        /// meaning unless `ordered`.
         case elements(Shape, ordered: Bool)
-        /// A ULEB128 count, then each key followed by its value, framed as elements are, in an
-        /// order that carries no meaning.
+        /// A ULEB128 count, then each key followed by its value, in an order that carries no
+        /// meaning.
         case entries(Shape, Shape)
     }
 }
@@ -43,8 +43,12 @@ extension Fuzz.Shape {
             return true
 
         case .opaque:
-            output += input
-            input = []
+            guard
+            let length: Int = Self.uleb128(&input, into: &output), length <= input.count else {
+                return false
+            }
+            output += input.prefix(length)
+            input.removeFirst(length)
             return true
 
         case .cases(let payloads):
@@ -62,8 +66,8 @@ extension Fuzz.Shape {
             }
             var parts: [[UInt8]] = []
             for _: Int in 0 ..< count {
-                guard
-                let part: [UInt8] = element.framed(&input) else {
+                var part: [UInt8] = []
+                guard element.canonical(&input, into: &part) else {
                     return false
                 }
                 parts.append(part)
@@ -81,36 +85,16 @@ extension Fuzz.Shape {
             }
             var parts: [[UInt8]] = []
             for _: Int in 0 ..< count {
-                guard
-                let key: [UInt8] = key.framed(&input),
-                let value: [UInt8] = value.framed(&input) else {
+                var part: [UInt8] = []
+                guard key.canonical(&input, into: &part), value.canonical(&input, into: &part) else {
                     return false
                 }
-                parts.append(key + value)
+                parts.append(part)
             }
             parts.sort { $0.lexicographicallyPrecedes($1) }
             output += parts.joined()
             return true
         }
-    }
-
-    /// One part of a container, in place when it has a fixed size and behind its ULEB128
-    /// length otherwise, in canonical order.
-    private func framed(_ input: inout ArraySlice<UInt8>) -> [UInt8]? {
-        var part: [UInt8] = []
-        if  case .fixed = self {
-            return self.canonical(&input, into: &part) ? part : nil
-        }
-        guard
-        let length: Int = Self.uleb128(&input, into: &part), length <= input.count else {
-            return nil
-        }
-        var inner: ArraySlice<UInt8> = input.prefix(length)
-        input.removeFirst(length)
-        guard self.canonical(&inner, into: &part), inner.isEmpty else {
-            return nil
-        }
-        return part
     }
 
     /// A ULEB128 number, copied to `output` exactly as it was written, so that a number in a

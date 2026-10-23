@@ -11,7 +11,7 @@ extension ArraySlice: Transferable where Element: Transferable {
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         output.append(uleb128: UInt.init(self.count))
         for element: Element in self {
-            output.append(framed: element)
+            element.transfer(into: &output)
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

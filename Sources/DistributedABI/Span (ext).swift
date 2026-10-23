@@ -1,7 +1,6 @@
 extension Span where Element: Transferable {
     /// The size of these elements as the wire form of a collection: a ULEB128 count, then the
-    /// elements, packed when their type has a fixed size, and each preceded by its ULEB128
-    /// length otherwise.
+    /// elements one after another, each of which delimits itself.
     ///
     /// Indexing the span lends each element where it lies. Where this body is specialized for
     /// the element type, as it is in a client that names the type, the optimizer can size the
@@ -17,7 +16,7 @@ extension Span where Element: Transferable {
         }
         var size: Int = header
         for i: Int in self.indices {
-            size += self[i].framedTransferSize
+            size += self[i].transferSize
         }
         return size
     }

@@ -1,12 +1,15 @@
 extension Substring: Transferable {
     /// A substring travels exactly as a ``Swift/String`` with the same contents.
-    @inlinable public var transferSize: Int { self.utf8.count }
+    @inlinable public var transferSize: Int {
+        let count: Int = self.utf8.count
+        return ULEB128.size(UInt.init(count)) + count
+    }
 
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         // the native storage through an inlinable call, as `String.transfer(into:)` takes
         // it; unlike the string’s, the substring’s method is not marked safe
         let copied: Void? = unsafe self.utf8.withContiguousStorageIfAvailable {
-            output.append(bytes: unsafe $0.span.bytes)
+            output.append(prefixed: unsafe $0.span.bytes)
         }
         if  case nil = copied {
             self.transfer(transcoding: &output)
@@ -18,6 +21,7 @@ extension Substring: Transferable {
     @usableFromInline @_alwaysEmitIntoClient @inline(never) func transfer(
         transcoding output: inout OutputRawSpan
     ) {
+        output.append(uleb128: UInt.init(self.utf8.count))
         for byte: UInt8 in self.utf8 {
             output.append(byte)
         }

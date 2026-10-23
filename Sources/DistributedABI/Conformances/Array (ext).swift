@@ -1,6 +1,6 @@
 extension Array: Transferable where Element: Transferable {
-    /// An array travels as a ULEB128 count, then its elements: packed when their type has a
-    /// fixed size, and each preceded by its ULEB128 length otherwise.
+    /// An array travels as a ULEB128 count, then its elements one after another, each of
+    /// which delimits itself.
     @inlinable public var transferSize: Int {
         // elements of a fixed size need only the count: asking an array bridged from an
         // `NSArray` for its span would first copy its elements into contiguous storage
@@ -13,7 +13,7 @@ extension Array: Transferable where Element: Transferable {
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         output.append(uleb128: UInt.init(self.count))
         for element: Element in self {
-            output.append(framed: element)
+            element.transfer(into: &output)
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

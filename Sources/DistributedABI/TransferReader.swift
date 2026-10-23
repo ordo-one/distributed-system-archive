@@ -66,32 +66,9 @@ extension TransferReader {
             throw .init(.expected(size, encountered: self.remaining))
         }
         let value: Integer = self.bytes.load(fromByteOffset: self.index, as: Integer.self)
-        // cannot overflow, since `size` fits in the bytes remaining; wrapping, so that
-        // `take(framed:)` can see that an integer reads exactly its size
+        // cannot overflow, since `size` fits in the bytes remaining
         self.index &+= size
         return .init(littleEndian: value)
-    }
-
-    /// One value as the part of a container, the inverse of ``OutputRawSpan/append(framed:)``:
-    /// read in place when its type has a fixed size, of which it must read exactly that many
-    /// bytes, and otherwise from exactly the bytes its ULEB128 length frames, all of which it
-    /// must read.
-    @inlinable public mutating func take<Value>(
-        framed _: Value.Type
-    ) throws(TransferError) -> Value where Value: Transferable {
-        if  let size: Int = Value.fixedTransferSize {
-            let start: Int = self.index
-            let value: Value = try .init(transferring: &self)
-            guard self.index &- start == size else {
-                throw .init(.expected(size, encountered: self.index &- start))
-            }
-            return value
-        } else {
-            var element: TransferReader = .init(try self.takePrefixed())
-            let value: Value = try .init(transferring: &element)
-            try element.finish()
-            return value
-        }
     }
 
     /// Refuses the input unless every byte has been read.

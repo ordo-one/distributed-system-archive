@@ -59,13 +59,4 @@ extension OutputRawSpan {
         self.append(uleb128: UInt.init(bytes.byteCount))
         self.append(bytes: bytes)
     }
-
-    /// Appends `value` as the part of a container: a ULEB128 length first unless its type has
-    /// a fixed size, then its bytes. The value takes ``Transferable/framedTransferSize`` bytes.
-    @inlinable public mutating func append<Value>(framed value: Value) where Value: Transferable {
-        if  case nil = Value.fixedTransferSize {
-            self.append(uleb128: UInt.init(value.transferSize))
-        }
-        value.transfer(into: &self)
-    }
 }

@@ -11,7 +11,7 @@ extension Set: Transferable where Element: Transferable {
         // set’s storage and released after
         var size: Int = header
         for element: Element in self {
-            size += element.framedTransferSize
+            size += element.transferSize
         }
         return size
     }
@@ -19,14 +19,14 @@ extension Set: Transferable where Element: Transferable {
     @inlinable public func transfer(into output: inout OutputRawSpan) {
         output.append(uleb128: UInt.init(self.count))
         for element: Element in self {
-            output.append(framed: element)
+            element.transfer(into: &output)
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
         let count: Int = try input.takeCount(of: Element.self)
         self.init(minimumCapacity: count)
         for i: Int in 0 ..< count {
-            guard case (inserted: true, _) = self.insert(try input.take(framed: Element.self)) else {
+            guard case (inserted: true, _) = self.insert(try Element.init(transferring: &input)) else {
                 throw .init(.duplicate(i))
             }
         }
