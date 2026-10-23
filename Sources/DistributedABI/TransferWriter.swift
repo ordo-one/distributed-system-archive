@@ -93,6 +93,13 @@ extension TransferWriter {
         )
     }
 
+    /// Appends the storage of `elements` with one copy. The caller has found
+    /// ``Transferable/bitwiseTransferStride`` for the element type: the elements hold no
+    /// reference and no padding, and their storage is their transfer bytes, one after another.
+    @inlinable mutating func append<Element>(bitwise elements: Span<Element>) where Element: Transferable {
+        self.append(bytes: unsafe elements.bytes)
+    }
+
     /// Appends a ULEB128 length, then `bytes`: the inverse of
     /// ``TransferReader/takePrefixed()``.
     @inlinable public mutating func append(prefixed bytes: RawSpan) {

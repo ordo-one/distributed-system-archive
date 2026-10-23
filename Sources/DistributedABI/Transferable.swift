@@ -18,6 +18,32 @@ public protocol Transferable: Sendable {
     /// exactly that many in ``init(transferring:)``. The size is at least one byte.
     static var fixedTransferSize: Int? { get }
 
+    /// Whether a value of this type is stored in memory exactly as its transfer bytes, so that
+    /// an array of them can travel as one copy of its elements’ storage.
+    ///
+    /// A type that states this has a ``fixedTransferSize`` that is the size and the stride of
+    /// its memory, holds no reference, and reads back as the value whose stored bytes are any
+    /// bytes of that size: every bit pattern is a valid value. An array, a contiguous array, a
+    /// slice or an inline array of such elements then writes their storage after the count
+    /// with one copy, and reads it back with one copy, with the bytes on the wire unchanged.
+    /// The collection checks the size, the stride and the absence of references itself, and
+    /// writes and reads each element through its own conformance when any of them fails.
+    ///
+    /// The fixed-width integers state it on a little-endian host, as do `Float` and `Double`,
+    /// whose wire form is their bit pattern. A type that wraps one of them as its only stored
+    /// property, and travels as it does, states it by forwarding the wrapped type’s answer:
+    ///
+    /// ```swift
+    /// @inlinable public static var isBitwiseTransferable: Bool {
+    ///     RawValue.isBitwiseTransferable
+    /// }
+    /// ```
+    ///
+    /// A type with an integer raw value does not state it by default: an enumeration is stored
+    /// as its case index rather than its raw value, and not every byte is a case. Neither does
+    /// `Bool`, which reads only 0 and 1. The default is false.
+    static var isBitwiseTransferable: Bool { get }
+
     /// The exact number of bytes ``transfer(into:)`` writes, at least one.
     ///
     /// A collection refuses a count of elements that the bytes remaining could not hold at one
@@ -36,11 +62,38 @@ public protocol Transferable: Sendable {
 }
 extension Transferable {
     @inlinable public static var fixedTransferSize: Int? { nil }
+    @inlinable public static var isBitwiseTransferable: Bool { false }
+}
+extension Transferable {
+    /// The fixed size of a value of this type when an array of them can travel as one copy of
+    /// its storage: the type states ``isBitwiseTransferable``, and its fixed size is the size
+    /// and the stride of its memory, which holds no reference. Nil otherwise, and then each
+    /// element travels through its own conformance. Specialized for a type, this folds to a
+    /// constant; through the witness table, it asks the type once per collection.
+    @inlinable static var bitwiseTransferStride: Int? {
+        guard Self.isBitwiseTransferable,
+        let size: Int = Self.fixedTransferSize,
+            size == MemoryLayout<Self>.size,
+            size == MemoryLayout<Self>.stride,
+        _isPOD(Self.self) else {
+            return nil
+        }
+        return size
+    }
 }
 extension Transferable
     where Self: FixedWidthInteger & BitwiseCopyable & ConvertibleFromBytes & ConvertibleToBytes {
     /// An integer travels as its fixed-width little-endian bytes.
     @inlinable public static var fixedTransferSize: Int? { MemoryLayout<Self>.size }
+    /// On a little-endian host, an integer is stored as the bytes it travels as. A type that
+    /// gives itself another wire form than this states false.
+    @inlinable public static var isBitwiseTransferable: Bool {
+        #if _endian(little)
+        true
+        #else
+        false
+        #endif
+    }
     @inlinable public var transferSize: Int { MemoryLayout<Self>.size }
 
     @inlinable public func transfer(into output: inout TransferWriter) {

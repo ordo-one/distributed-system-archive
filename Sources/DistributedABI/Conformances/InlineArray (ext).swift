@@ -32,23 +32,40 @@ extension InlineArray: Transferable where Element: Transferable {
         return size
     }
 
+    /// Elements stored as their transfer bytes, which ``Transferable/isBitwiseTransferable``
+    /// states, are written with one copy of their storage, and others one at a time.
     @inlinable public func transfer(into output: inout TransferWriter) {
         if  count == 0 {
             output.append(0)
+            return
+        }
+        if  case _? = Element.bitwiseTransferStride {
+            output.append(bitwise: self.span)
             return
         }
         for i: Int in self.indices {
             output.append(element: self[i])
         }
     }
-    /// Reads each element through ``TransferReader/takeElement(_:)``, so that an element of
-    /// fixed size must read exactly that many bytes.
+    /// Reads elements stored as their transfer bytes with one copy, and others each through
+    /// ``TransferReader/takeElement(_:)``, so that an element of fixed size must read exactly
+    /// that many bytes.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
         if  count == 0 {
             switch try input.take(UInt8.self) {
             case 0: break
             case let code: throw .init(.discriminant(.init(code)))
             }
+        } else if let size: Int = Element.bitwiseTransferStride {
+            // cannot overflow, since the elements already fit in memory at that stride
+            guard count &* size <= input.remaining else {
+                // the error a read of one element at a time reports at the first element cut
+                // short, so that the bulk read refuses truncated bytes exactly as it does
+                throw .init(.expected(size, encountered: input.remaining % size))
+            }
+            let bytes: RawSpan = try input.take(count &* size)
+            self = .init { $0.append(bitwise: bytes, count: count) }
+            return
         }
         self = try .init { (_: Int) throws(TransferError) -> Element in
             try input.takeElement(Element.self)

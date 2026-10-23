@@ -17,6 +17,7 @@ Every value delimits itself on the wire. A leaf whose size varies (a string, a s
 ```swift
 public protocol Transferable: Sendable {
     static var fixedTransferSize: Int? { get }      // nil unless every value has one size
+    static var isBitwiseTransferable: Bool { get }  // false unless a value is stored as its bytes
     var transferSize: Int { get }                   // the exact number of bytes written
     func transfer(into output: inout TransferWriter)
     init(transferring input: inout TransferReader) throws(TransferError)
@@ -104,6 +105,16 @@ The `payload` kind carries the type’s own error unchanged, which is how the tr
 | an enum with an integer raw value | its raw value; a raw value with no case is refused |
 
 A set or a dictionary that repeats an element or a key is refused. Set and dictionary elements travel in iteration order, which differs between processes, so equal values need not produce equal bytes.
+
+An array, a contiguous array, a slice or an inline array whose elements are stored in memory exactly as their transfer bytes writes and reads their storage with one copy, with the bytes on the wire unchanged. An element type states this in `isBitwiseTransferable`, which is false by default. The fixed-width integers state it on a little-endian host, and `Float` and `Double`, which travel as their bit pattern; an enumeration with an integer raw value does not, since it is stored as its case index and not every byte is a case, and neither does `Bool`. A type that wraps one of them as its only stored property states it in one line, forwarding the wrapped type’s answer:
+
+```swift
+extension TransactionIdentifier: Transferable {
+    @inlinable public static var isBitwiseTransferable: Bool { RawValue.isBitwiseTransferable }
+}
+```
+
+A composite states it from its fields’ own statements and its layout, every field at the offset the fields before it end at and no byte beyond them, which a derive macro can write as code that the optimizer folds to a constant. The collection checks the rest itself: the element’s fixed size must be the size and the stride of its memory, and the element must hold no reference, or each element travels one at a time through its own conformance.
 
 An inline array writes no count, because its count is part of its type. An inline array of count 0 (`InlineArray<0, Element>`) still takes the one byte every value must, a zero, and any other byte in its place is refused. Its fixed size is therefore one byte when the count is zero. Otherwise it is the count times its element’s fixed size, when the element states one and the product fits in `Int`, so a composite that holds an inline array keeps a fixed size of its own. In any other case it has none.
 

@@ -8,13 +8,27 @@ extension ArraySlice: Transferable where Element: Transferable {
         return self.span.arrayTransferSize
     }
 
+    /// Elements stored as their transfer bytes, which ``Transferable/isBitwiseTransferable``
+    /// states, are written with one copy of their storage, and others one at a time.
     @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.count))
+        if  self.count != 0, case _? = Element.bitwiseTransferStride {
+            output.append(bitwise: self.span)
+            return
+        }
         for element: Element in self {
             output.append(element: element)
         }
     }
+    /// Elements stored as their transfer bytes are read with one copy into new storage, and
+    /// others one at a time; either way, a count the bytes remaining cannot hold is refused
+    /// before anything is reserved.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        try self.init(transferringElements: &input)
+        guard case _? = Element.bitwiseTransferStride else {
+            try self.init(transferringElements: &input)
+            return
+        }
+        // an array of them, read with one copy, sliced whole, which shares its storage
+        self = try Array<Element>.init(transferring: &input)[...]
     }
 }
