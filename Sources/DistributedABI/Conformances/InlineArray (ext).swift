@@ -39,7 +39,7 @@ extension InlineArray: Transferable where Element: Transferable {
             output.append(0)
             return
         }
-        if  case _? = Element.bitwiseTransferStride {
+        if  case _? = Element.bitwiseTransfer {
             output.append(bitwise: self.span)
             return
         }
@@ -56,14 +56,22 @@ extension InlineArray: Transferable where Element: Transferable {
             case 0: break
             case let code: throw .init(.discriminant(.init(code)))
             }
-        } else if let size: Int = Element.bitwiseTransferStride {
+        } else if case let (size, cases)? = Element.bitwiseTransfer {
             // cannot overflow, since the elements already fit in memory at that stride
             guard count &* size <= input.remaining else {
                 // the error a read of one element at a time reports at the first element cut
-                // short, so that the bulk read refuses truncated bytes exactly as it does
+                // short, or at a byte of no case before it, so that the bulk read refuses
+                // truncated bytes exactly as it does
+                if  let cases: Int {
+                    try input.takeRemaining().checkDiscriminants(below: cases)
+                    throw .init(.expected(1, encountered: 0))
+                }
                 throw .init(.expected(size, encountered: input.remaining % size))
             }
             let bytes: RawSpan = try input.take(count &* size)
+            if  let cases: Int {
+                try bytes.checkDiscriminants(below: cases)
+            }
             self = .init { $0.append(bitwise: bytes, count: count) }
             return
         }

@@ -44,6 +44,35 @@ public protocol Transferable: Sendable {
     /// `Bool`, which reads only 0 and 1. The default is false.
     static var isBitwiseTransferable: Bool { get }
 
+    /// The number of discriminants of a type stored as one byte that is its transfer byte, the
+    /// bytes from zero up to that number, so that an array of them can travel as one copy of
+    /// its storage, each byte checked against that number before it is copied. Nil for any
+    /// other type, and by default.
+    ///
+    /// `Bool` states 2: it is stored as the byte 0 or 1 it travels as. An enumeration with no
+    /// payload is stored as its case index, which Swift’s type layout makes the cases’
+    /// declaration order, in one byte for two to 256 cases; when its raw values are `UInt8`
+    /// and are exactly those indices, its stored byte is its transfer byte, and it can state
+    /// its case count.
+    ///
+    /// The statement is not meant to be written by hand. The SDK’s generator emits it for the
+    /// enumerations it generates, and ordo-sdk’s derive macro for a plugin’s own, each after
+    /// checking from the declaration that the enumeration has no payload and that its raw
+    /// values are implicit or exactly its case indices, and counting the cases: for five such
+    /// cases, the conformance they generate carries `bitwiseDiscriminantCount` returning 5.
+    ///
+    /// A statement written by hand must guarantee the same: a type stored in one byte, each
+    /// value stored as the byte it travels as, and every byte below the count a value. The
+    /// collection checks the size, the stride and the fixed size of one byte itself, and
+    /// reads each element through its own conformance when any of them fails; it refuses a
+    /// byte at or above the count with the ``TransferError/Kind/discriminant(_:)`` error a
+    /// read of one value at a time reports, for the first such byte. It cannot check the rest,
+    /// and nothing reports a wrong statement: a byte out of range is refused only from the
+    /// stated count up, so a count above the number of cases accepts a byte of no case as a
+    /// value of the type, and a count or raw values that do not match the cases read a byte
+    /// as the wrong case, silently.
+    static var bitwiseDiscriminantCount: Int? { get }
+
     /// The exact number of bytes ``transfer(into:)`` writes, at least one.
     ///
     /// A collection refuses a count of elements that the bytes remaining could not hold at one
@@ -63,6 +92,7 @@ public protocol Transferable: Sendable {
 extension Transferable {
     @inlinable public static var fixedTransferSize: Int? { nil }
     @inlinable public static var isBitwiseTransferable: Bool { false }
+    @inlinable public static var bitwiseDiscriminantCount: Int? { nil }
 }
 extension Transferable {
     /// The fixed size of a value of this type when an array of them can travel as one copy of
@@ -79,6 +109,26 @@ extension Transferable {
             return nil
         }
         return size
+    }
+
+    /// How an array of values of this type travels as one copy of its storage: the size of a
+    /// value, and the number of its values when each stored byte must be checked against it,
+    /// from ``bitwiseDiscriminantCount``. Nil when the type states neither statement, or
+    /// its layout does not bear the statement out, and then each element travels through its
+    /// own conformance.
+    @inlinable static var bitwiseTransfer: (size: Int, cases: Int?)? {
+        if  let size: Int = Self.bitwiseTransferStride {
+            return (size, nil)
+        }
+        guard
+        let cases: Int = Self.bitwiseDiscriminantCount, 1 ... 256 ~= cases,
+        Self.fixedTransferSize == 1,
+        MemoryLayout<Self>.size == 1,
+        MemoryLayout<Self>.stride == 1,
+        _isPOD(Self.self) else {
+            return nil
+        }
+        return (1, cases)
     }
 }
 extension Transferable

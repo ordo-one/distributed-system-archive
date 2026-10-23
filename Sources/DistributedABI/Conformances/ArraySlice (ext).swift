@@ -12,7 +12,7 @@ extension ArraySlice: Transferable where Element: Transferable {
     /// states, are written with one copy of their storage, and others one at a time.
     @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.count))
-        if  self.count != 0, case _? = Element.bitwiseTransferStride {
+        if  self.count != 0, case _? = Element.bitwiseTransfer {
             output.append(bitwise: self.span)
             return
         }
@@ -24,7 +24,7 @@ extension ArraySlice: Transferable where Element: Transferable {
     /// others one at a time; either way, a count the bytes remaining cannot hold is refused
     /// before anything is reserved.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        guard case _? = Element.bitwiseTransferStride else {
+        guard case _? = Element.bitwiseTransfer else {
             try self.init(transferringElements: &input)
             return
         }

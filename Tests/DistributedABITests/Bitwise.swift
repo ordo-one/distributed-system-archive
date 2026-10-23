@@ -176,11 +176,82 @@ import Testing
         #expect(refusal == Self.refusal(bytes, as: ArraySlice<Ticket>.self))
     }
 
-    /// An enumeration with an integer raw value, and `Bool`, do not state it, so an array of
-    /// them refuses a byte of no case where it stands.
+    /// An enumeration with an integer raw value, and `Bool`, are not stored as every byte
+    /// they could read, so an array of them refuses a byte of no case where it stands.
     @Test static func EnumerationsRefuseEachElement() {
         #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .discriminant(5))
         #expect(Self.refusal([3, 1, 0, 2], as: [Bool].self) == .discriminant(2))
+    }
+
+    /// `Bool` states two cases, and the enumeration of its case indices its three, and no
+    /// other type states any by default.
+    @Test static func CaseCounts() {
+        #expect(Bool.bitwiseDiscriminantCount == 2)
+        #expect(Mark.bitwiseDiscriminantCount == 3)
+        #expect(UnstatedMark.bitwiseDiscriminantCount == nil)
+        #expect(Side.bitwiseDiscriminantCount == nil)
+        #expect(UInt8.bitwiseDiscriminantCount == nil)
+    }
+
+    /// Arrays of `Bool` and of an enumeration that states its case count write the bytes of a
+    /// write one element at a time, spelled out here, and read them back equal.
+    @Test(arguments: [0, 1, 3, 128]) static func CheckedArrays(_ count: Int) throws {
+        let raw: [UInt8] = (0 ..< count).map { UInt8.init($0 % 3) }
+        let golden: [UInt8] = Self.uleb128(count) + raw
+        let marks: [Mark] = raw.map { Mark.init(rawValue: $0)! }
+        #expect([UInt8].init(transferring: marks) == golden)
+        #expect([UInt8].init(transferring: raw.map { UnstatedMark.init(rawValue: $0)! }) == golden)
+        #expect(try [Mark].decode(golden) == marks)
+        #expect(try ContiguousArray<Mark>.decode(golden) == ContiguousArray.init(marks))
+        #expect(try ArraySlice<Mark>.decode(golden) == marks[...])
+
+        let flags: [Bool] = raw.map { $0 == 1 }
+        let flagBytes: [UInt8] = Self.uleb128(count) + flags.map { $0 ? 1 : 0 }
+        #expect([UInt8].init(transferring: flags) == flagBytes)
+        #expect(try [Bool].decode(flagBytes) == flags)
+        #expect(try ContiguousArray<Bool>.decode(flagBytes) == ContiguousArray.init(flags))
+
+        let inline: InlineArray<4, Mark> = [.at, .none, .near, .at]
+        #expect([UInt8].init(transferring: inline) == [2, 0, 1, 2])
+        #expect([UInt8].init(transferring: try InlineArray<4, Mark>.decode([2, 0, 1, 2])) == [2, 0, 1, 2])
+    }
+
+    /// A byte of no case, wherever it stands, and every prefix of a frame, are refused by each
+    /// kind of array with the error a read of one element at a time reports.
+    @Test(arguments: 0 ..< 5) static func CheckedRefusals(_ position: Int) {
+        for bad: UInt8 in [3, 0x80, 0xff] {
+            var bytes: [UInt8] = [5, 0, 1, 2, 1, 0]
+            bytes[1 + position] = bad
+            for length: Int in 0 ... bytes.count {
+                let prefix: [UInt8] = .init(bytes.prefix(length))
+                #expect(Self.refusal(prefix, as: [Mark].self) == Self.refusal(prefix, as: [UnstatedMark].self))
+                #expect(
+                    Self.refusal(prefix, as: ContiguousArray<Mark>.self)
+                        == Self.refusal(prefix, as: ContiguousArray<UnstatedMark>.self)
+                )
+                #expect(
+                    Self.refusal(prefix, as: ArraySlice<Mark>.self)
+                        == Self.refusal(prefix, as: ArraySlice<UnstatedMark>.self)
+                )
+                let inline: [UInt8] = .init(bytes.dropFirst().prefix(length))
+                #expect(
+                    Self.refusal(inline, as: InlineArray<5, Mark>.self)
+                        == Self.refusal(inline, as: InlineArray<5, UnstatedMark>.self)
+                )
+            }
+            var flags: [UInt8] = [5, 0, 1, 1, 0, 1]
+            flags[1 + position] = bad
+            #expect(Self.refusal(flags, as: [Bool].self) == .discriminant(.init(bad)))
+            #expect(Self.refusal(Array.init(flags.dropFirst()), as: InlineArray<5, Bool>.self) == .discriminant(.init(bad)))
+        }
+    }
+
+    /// A type of more than one byte that states a case count travels one element at a time.
+    @Test static func CaseCountOfAWideType() throws {
+        let marks: [WideMark] = [.init(rawValue: 7), .init(rawValue: 0x0102)]
+        let golden: [UInt8] = [2] + Self.littleEndian(7) + Self.littleEndian(0x0102)
+        #expect([UInt8].init(transferring: marks) == golden)
+        #expect(try [WideMark].decode(golden) == marks)
     }
 }
 extension Bitwise {

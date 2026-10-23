@@ -18,6 +18,7 @@ Every value delimits itself on the wire. A leaf whose size varies (a string, a s
 public protocol Transferable: Sendable {
     static var fixedTransferSize: Int? { get }      // nil unless every value has one size
     static var isBitwiseTransferable: Bool { get }  // false unless a value is stored as its bytes
+    static var bitwiseDiscriminantCount: Int? { get } // nil unless stored as one byte, a case index
     var transferSize: Int { get }                   // the exact number of bytes written
     func transfer(into output: inout TransferWriter)
     init(transferring input: inout TransferReader) throws(TransferError)
@@ -113,6 +114,8 @@ extension TransactionIdentifier: Transferable {
     @inlinable public static var isBitwiseTransferable: Bool { RawValue.isBitwiseTransferable }
 }
 ```
+
+`Bool`, and an enumeration with no payload whose raw values are its case indices, are stored as the one byte they travel as, but not every byte is a value. Such a type states its number of discriminants in `bitwiseDiscriminantCount` instead, `Bool` 2, and an array of them is read with one copy, each byte checked against that number first; a byte at or above it is refused with the error a read of one element at a time reports for it. The statement is not meant to be written by hand: the SDK’s generator emits it for the enumerations it generates, and ordo-sdk’s derive macro for a plugin’s own, each after checking from the declaration that the raw values are implicit or exactly the case indices and counting the cases. A statement written by hand must guarantee the same, and nothing reports one that is wrong: a byte is refused only from the stated count up, so a count above the number of cases accepts a byte of no case as a value, and a count or raw values that do not match the cases read a byte as the wrong case, silently.
 
 A composite states it from its fields’ own statements and its layout, every field at the offset the fields before it end at and no byte beyond them, which a derive macro can write as code that the optimizer folds to a constant. The collection checks the rest itself: the element’s fixed size must be the size and the stride of its memory, and the element must hold no reference, or each element travels one at a time through its own conformance.
 
