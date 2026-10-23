@@ -5,16 +5,18 @@ import Foundation
 #endif
 
 //  A string write on its own, as the transport makes one for every string argument, element
-//  or field: the size, then the bytes, into a frame the caller reserved. The round trips
-//  measure the write together with the read and the allocation of the decoded string.
+//  or field: the length, then the bytes, both written by `transfer(into:)`, into a frame the
+//  caller reserved. The round trips measure the write together with the read and the
+//  allocation of the decoded string.
 
 @inline(never) func write<Value>(
     _ values: [Value],
     into frame: UnsafeMutableRawBufferPointer
 ) -> Int where Value: Transferable {
+    //  no check of the room left before each value, as a container makes none: the output
+    //  traps if the frame is too small
     var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
     for value: Value in values {
-        precondition(value.transferSize <= output.freeCapacity, "frame too small")
         value.transfer(into: &output)
     }
     return output.finalize(for: frame)
@@ -79,8 +81,12 @@ func registerStringBenchmarks() {
         }
     }
 
-    func register<Value>(_ name: String, _ values: [Value]) where Value: Transferable {
+    func register<Value>(
+        _ name: String,
+        _ values: [Value]
+    ) where Value: Transferable & Equatable {
         let capacity: Int = values.reduce(0) { $0 + $1.transferSize }
+        precondition(debugWriteOK(values, capacity: capacity), "\(name) write mismatch")
         Benchmark.init(name, configuration: config) { benchmark in
             let frame: UnsafeMutableRawBufferPointer = .allocate(
                 byteCount: max(capacity, 1),
@@ -116,6 +122,31 @@ func registerStringBenchmarks() {
         register("WriteBridgedSuffix \(backing)", [string.suffix(1)])
     }
     #endif
+}
+
+/// Writes `values` once as the row does, so we KNOW it fills exactly the frame it reserves
+/// with bytes that read back as the same strings, one after another, before measuring.
+func debugWriteOK<Value>(
+    _ values: [Value],
+    capacity: Int
+) -> Bool where Value: Transferable & Equatable {
+    var bytes: [UInt8] = .init(repeating: 0, count: capacity)
+    let count: Int = bytes.withUnsafeMutableBytes { write(values, into: $0) }
+    guard count == capacity else {
+        return false
+    }
+    do {
+        var input: TransferReader = .init(bytes.span.bytes)
+        for value: Value in values {
+            guard try Value.init(transferring: &input) == value else {
+                return false
+            }
+        }
+        try input.finish()
+        return true
+    } catch {
+        return false
+    }
 }
 
 #if _runtime(_ObjC)
