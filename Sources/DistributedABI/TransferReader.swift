@@ -149,12 +149,13 @@ extension TransferReader {
     ///
     /// When the element type states ``Transferable/isBitwiseTransferable`` or
     /// ``Transferable/bitwiseDiscriminantCount``, its fixed size is the size and the stride of
-    /// its memory, which holds no reference, and the bytes remaining hold all `count` elements,
-    /// their bytes are copied into `output` at once, each byte of a type that states a number
-    /// of discriminants checked against it first; otherwise each element reads itself. Either
-    /// way, the bytes are refused exactly where a read of one element at a time refuses them,
-    /// with the same error. `output` must have room for `count` more elements. When this
-    /// throws, `output` may hold some of the elements read before the error.
+    /// its memory, which holds no reference, and the bytes remaining
+    /// hold all `count` elements, their bytes are copied into `output` at once, each byte of a
+    /// type that states a number of discriminants checked where it lies first; otherwise each
+    /// element reads itself. Either way, the bytes are refused exactly where a read of one
+    /// element at a time refuses them, with the same error and the reader at the same
+    /// position. `output` must have room for `count` more elements. When this throws, `output`
+    /// may hold some of the elements read before the error.
     ///
     /// A collection of one’s own whose elements lie in contiguous storage reads its count
     /// through ``takeCount(of:)``, which refuses a count the bytes remaining could not hold,
@@ -167,11 +168,10 @@ extension TransferReader {
         precondition(0 ... output.freeCapacity ~= count, "OutputSpan capacity overflow")
         // cannot overflow, since that many elements fit in the output’s memory at that stride
         if  count != 0, case let (size, cases)? = Element.bitwiseTransfer, count &* size <= self.remaining {
-            let bytes: RawSpan = self.take(holding: count &* size)
             if  let cases: Int {
-                try bytes.checkDiscriminants(below: cases)
+                try self.checkDiscriminants(count, below: cases)
             }
-            output.append(bitwise: bytes, count: count)
+            output.append(bitwise: self.take(holding: count &* size), count: count)
             return
         }
         // one at a time, which also refuses a run of elements cut short where the element

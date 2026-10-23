@@ -35,11 +35,13 @@ extension Array: Transferable where Element: Transferable {
             self.init()
             return
         }
+        if  let cases: Int {
+            // checked where they lie, before any is taken, so that a byte of no case is refused
+            // with the reader where a read of one element at a time leaves it
+            try input.checkDiscriminants(count, below: cases)
+        }
         // cannot overflow, since that many elements fit in the bytes remaining
         let bytes: RawSpan = input.take(holding: count &* size)
-        if  let cases: Int {
-            try bytes.checkDiscriminants(below: cases)
-        }
         if  _isConcrete(Element.self) {
             // specialized for the element type, reserving inline with the storage type known,
             // as a read of one element at a time does: the initializer below allocates through

@@ -169,7 +169,7 @@ import Testing
             [0x80, 0x00],
         ] as [[UInt8]]
     ) static func HostileCounts(_ bytes: [UInt8]) throws {
-        let refusal: HostileInput.Expectation? = Self.refusal(bytes, as: [Ticket].self)
+        let refusal: Refusal? = Self.refusal(bytes, as: [Ticket].self)
         #expect(refusal != nil)
         #expect(refusal == Self.refusal(bytes, as: [UnstatedTicket].self))
         #expect(refusal == Self.refusal(bytes, as: ContiguousArray<Ticket>.self))
@@ -179,8 +179,8 @@ import Testing
     /// An enumeration with an integer raw value, and `Bool`, are not stored as every byte
     /// they could read, so an array of them refuses a byte of no case where it stands.
     @Test static func EnumerationsRefuseEachElement() {
-        #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .discriminant(5))
-        #expect(Self.refusal([3, 1, 0, 2], as: [Bool].self) == .discriminant(2))
+        #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .init(kind: .discriminant(5), remaining: 0))
+        #expect(Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(kind: .discriminant(2), remaining: 2))
     }
 
     /// `Bool` states two cases, and the enumeration of its case indices its three, and no
@@ -217,7 +217,8 @@ import Testing
     }
 
     /// A byte of no case, wherever it stands, and every prefix of a frame, are refused by each
-    /// kind of array with the error a read of one element at a time reports.
+    /// kind of array with the error a read of one element at a time reports, and with the reader
+    /// where that read leaves it: just past the byte refused.
     @Test(arguments: 0 ..< 5) static func CheckedRefusals(_ position: Int) {
         for bad: UInt8 in [3, 0x80, 0xff] {
             var bytes: [UInt8] = [5, 0, 1, 2, 1, 0]
@@ -233,17 +234,74 @@ import Testing
                     Self.refusal(prefix, as: ArraySlice<Mark>.self)
                         == Self.refusal(prefix, as: ArraySlice<UnstatedMark>.self)
                 )
+                #expect(Self.refusal(prefix, as: Batch<Mark>.self) == Self.refusal(prefix, as: Batch<UnstatedMark>.self))
                 let inline: [UInt8] = .init(bytes.dropFirst().prefix(length))
                 #expect(
                     Self.refusal(inline, as: InlineArray<5, Mark>.self)
                         == Self.refusal(inline, as: InlineArray<5, UnstatedMark>.self)
                 )
             }
-            var flags: [UInt8] = [5, 0, 1, 1, 0, 1]
-            flags[1 + position] = bad
-            #expect(Self.refusal(flags, as: [Bool].self) == .discriminant(.init(bad)))
-            #expect(Self.refusal(Array.init(flags.dropFirst()), as: InlineArray<5, Bool>.self) == .discriminant(.init(bad)))
         }
+    }
+
+    /// The same for `Bool`, against its wire form under a type that states nothing: a byte
+    /// other than 0 or 1, wherever it stands, and every prefix of a frame, in each kind of array.
+    @Test(arguments: 0 ..< 5) static func CheckedFlagRefusals(_ position: Int) {
+        for bad: UInt8 in [2, 0x80, 0xff] {
+            var bytes: [UInt8] = [5, 0, 1, 1, 0, 1]
+            bytes[1 + position] = bad
+            for length: Int in 0 ... bytes.count {
+                let prefix: [UInt8] = .init(bytes.prefix(length))
+                #expect(Self.refusal(prefix, as: [Bool].self) == Self.refusal(prefix, as: [UnstatedFlag].self))
+                #expect(
+                    Self.refusal(prefix, as: ContiguousArray<Bool>.self)
+                        == Self.refusal(prefix, as: ContiguousArray<UnstatedFlag>.self)
+                )
+                #expect(
+                    Self.refusal(prefix, as: ArraySlice<Bool>.self)
+                        == Self.refusal(prefix, as: ArraySlice<UnstatedFlag>.self)
+                )
+                #expect(Self.refusal(prefix, as: Batch<Bool>.self) == Self.refusal(prefix, as: Batch<UnstatedFlag>.self))
+                let inline: [UInt8] = .init(bytes.dropFirst().prefix(length))
+                #expect(
+                    Self.refusal(inline, as: InlineArray<5, Bool>.self)
+                        == Self.refusal(inline, as: InlineArray<5, UnstatedFlag>.self)
+                )
+            }
+            #expect(Self.refusal(bytes, as: [Bool].self) == .init(kind: .discriminant(.init(bad)), remaining: 4 - position))
+        }
+    }
+
+    /// Each kind of array of the probe takes the checked copy: its own conformance reads and
+    /// writes nothing, where the same probe without the statement goes through it for every
+    /// element.
+    @Test static func TakesTheCheckedCopy() throws {
+        let tallies: [Tally] = (0 ..< 100).map { Tally.allCases[$0 % 3] }
+        let bytes: [UInt8] = [100] + tallies.map(\.rawValue)
+        let inline: InlineArray<4, Tally> = [.two, .zero, .one, .two]
+        let reads: Int = Tally.reads.load(ordering: .relaxed)
+        let writes: Int = Tally.writes.load(ordering: .relaxed)
+
+        #expect([UInt8].init(transferring: tallies) == bytes)
+        #expect([UInt8].init(transferring: ContiguousArray.init(tallies)) == bytes)
+        #expect([UInt8].init(transferring: tallies[...]) == bytes)
+        #expect([UInt8].init(transferring: Batch.init(elements: tallies)) == bytes)
+        #expect([UInt8].init(transferring: inline) == [2, 0, 1, 2])
+        #expect(try [Tally].decode(bytes) == tallies)
+        #expect(try ContiguousArray<Tally>.decode(bytes) == ContiguousArray.init(tallies))
+        #expect(try ArraySlice<Tally>.decode(bytes) == tallies[...])
+        #expect(try Batch<Tally>.decode(bytes) == Batch.init(elements: tallies))
+        #expect([UInt8].init(transferring: try InlineArray<4, Tally>.decode([2, 0, 1, 2])) == [2, 0, 1, 2])
+        #expect(Tally.reads.load(ordering: .relaxed) == reads)
+        #expect(Tally.writes.load(ordering: .relaxed) == writes)
+
+        let unstated: [UnstatedTally] = tallies.map { .init(rawValue: $0.rawValue)! }
+        let unstatedReads: Int = UnstatedTally.reads.load(ordering: .relaxed)
+        let unstatedWrites: Int = UnstatedTally.writes.load(ordering: .relaxed)
+        #expect([UInt8].init(transferring: unstated) == bytes)
+        #expect(try [UnstatedTally].decode(bytes) == unstated)
+        #expect(UnstatedTally.reads.load(ordering: .relaxed) == unstatedReads + 100)
+        #expect(UnstatedTally.writes.load(ordering: .relaxed) == unstatedWrites + 100)
     }
 
     /// A collection of one’s own that writes and reads its storage through the public helpers
@@ -267,7 +325,7 @@ import Testing
         let flags: Batch<Bool> = [true, false, true]
         #expect([UInt8].init(transferring: flags) == [3, 1, 0, 1])
         #expect(try Batch<Bool>.decode([3, 1, 0, 1]) == flags)
-        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .discriminant(2))
+        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .init(kind: .discriminant(2), remaining: 1))
 
         for bytes: [UInt8] in [[3, 0, 1, 2], [3, 0, 3, 2], [3, 0, 1], [3, 0xff], [2], []] {
             #expect(Self.refusal(bytes, as: Batch<Mark>.self) == Self.refusal(bytes, as: [UnstatedMark].self))
@@ -306,14 +364,23 @@ import Testing
     }
 }
 extension Bitwise {
+    /// A refusal, and where it left the reader.
+    struct Refusal: Equatable {
+        let kind: HostileInput.Expectation
+        let remaining: Int
+    }
+
     /// The error decoding `bytes` reports, or nil when they decode.
-    static func refusal<Value>(_ bytes: [UInt8], as _: Value.Type) -> HostileInput.Expectation?
-        where Value: Transferable {
+    /// The error decoding `bytes` reports, with the number of bytes the reader had left when it
+    /// did, or nil when they decode.
+    static func refusal<Value>(_ bytes: [UInt8], as _: Value.Type) -> Refusal? where Value: Transferable {
+        var input: TransferReader = .init(bytes.span.bytes)
         do {
-            _ = try Value.decode(bytes)
+            _ = try Value.init(transferring: &input)
+            try input.finish()
             return nil
         } catch {
-            return .init(error.kind)
+            return .init(kind: .init(error.kind), remaining: input.remaining)
         }
     }
 
