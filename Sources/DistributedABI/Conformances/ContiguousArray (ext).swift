@@ -34,17 +34,26 @@ extension ContiguousArray: Transferable where Element: Transferable {
             return
         }
         // cannot overflow, since that many elements fit in the bytes remaining
-        let bytes: RawSpan = try input.take(count &* size)
+        let bytes: RawSpan = input.take(holding: count &* size)
         if  let cases: Int {
             try bytes.checkDiscriminants(below: cases)
         }
-        // the initializer that hands out the uninitialized storage, which allocates in one call
-        // with one lookup of the storage type, where the span-based one looks up several
-        // generic types when the element type is not concrete
-        self = unsafe .init(unsafeUninitializedCapacity: count) {
-            (buffer: inout UnsafeMutableBufferPointer<Element>, initialized: inout Int) in
-            bytes.withUnsafeBytes { unsafe UnsafeMutableRawBufferPointer.init(buffer).copyMemory(from: $0) }
-            initialized = count
+        if  _isConcrete(Element.self) {
+            // specialized for the element type, reserving inline with the storage type known,
+            // as a read of one element at a time does: the initializer below allocates through
+            // a function of the standard library that looks the storage type up at run time
+            self.init()
+            self.append(addingCapacity: count) { $0.append(bitwise: bytes, count: count) }
+        } else {
+            // generic, the initializer that hands out the uninitialized storage, which looks up
+            // one generic type where reserving, or the span-based initializer, looks up several
+            self = unsafe .init(unsafeUninitializedCapacity: count) {
+                (buffer: inout UnsafeMutableBufferPointer<Element>, initialized: inout Int) in
+                bytes.withUnsafeBytes {
+                    unsafe UnsafeMutableRawBufferPointer.init(buffer).copyMemory(from: $0)
+                }
+                initialized = count
+            }
         }
     }
 }

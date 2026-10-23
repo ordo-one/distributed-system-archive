@@ -3,7 +3,7 @@ extension OutputSpan where Element: Transferable {
     /// that many elements of a type with a ``Transferable/bitwiseTransferStride``, whose
     /// storage is those bytes.
     @_lifetime(self: copy self)
-    @inlinable mutating func append(bitwise bytes: RawSpan, count: Int) {
+    @inlinable @inline(always) mutating func append(bitwise bytes: RawSpan, count: Int) {
         unsafe self.withUnsafeMutableBufferPointer {
             (buffer: UnsafeMutableBufferPointer<Element>, initialized: inout Int) in
             precondition(count <= buffer.count &- initialized, "OutputSpan capacity overflow")

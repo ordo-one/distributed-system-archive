@@ -29,6 +29,17 @@ extension TransferReader {
         return span
     }
 
+    /// The next `count` bytes, which the caller has found the bytes remaining hold, as a count
+    /// read through ``takeCount(of:)`` for elements of a fixed size does. Always inlined, so
+    /// that the read of a collection’s elements with one copy takes them inline.
+    @_lifetime(copy self)
+    @inlinable @inline(always) mutating func take(holding count: Int) -> RawSpan {
+        // cannot overflow, since `count` fits in the bytes remaining
+        let span: RawSpan = self.bytes.extracting(self.index ..< self.index &+ count)
+        self.index &+= count
+        return span
+    }
+
     /// Every byte not yet read.
     @_lifetime(copy self)
     @inlinable public mutating func takeRemaining() -> RawSpan {
