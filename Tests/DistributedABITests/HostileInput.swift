@@ -82,6 +82,10 @@ import Testing
             // an element of fixed size that reads fewer bytes than its type states
             Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
             Hostile.init("fixed-size key read short", [1, 5, 6, 7], as: [Undersized: UInt8].self, .expected(2, encountered: 1)),
+            // and one that reads more, wherever a collection reads it
+            Hostile.init("fixed-size element read long", [1, 5, 6], as: [Overreader].self, .expected(1, encountered: 2)),
+            Hostile.init("fixed-size key read long", [1, 5, 6, 7], as: [Overreader: UInt8].self, .expected(1, encountered: 2)),
+            Hostile.init("fixed-size value read long", [1, 7, 5, 6], as: [UInt8: Overreader].self, .expected(1, encountered: 2)),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),

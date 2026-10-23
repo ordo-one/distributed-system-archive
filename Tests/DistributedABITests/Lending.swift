@@ -42,6 +42,15 @@ import Testing
             Shape.init("dictionary value", lends: 2, [1, 7, 3, 3, 1, 4]) {
                 [UInt8].init(transferring: [7: $0] as [UInt8: Lent])
             },
+            Shape.init("dictionary key", lends: 2, [1, 3, 3, 1, 4, 7]) {
+                [UInt8].init(transferring: [$0: 7] as [Lent: UInt8])
+            },
+            Shape.init("result failure", lends: 2, [1, 3, 3, 1, 4]) {
+                [UInt8].init(transferring: Result<UInt8, Lent>.failure($0))
+            },
+            Shape.init("composite field", lends: 2, [9, 3, 3, 1, 4]) {
+                [UInt8].init(transferring: Envelope.init(tag: 9, payload: $0))
+            },
             Shape.init("array of optionals", lends: 2, [2, 1, 3, 3, 1, 4, 0]) {
                 [UInt8].init(transferring: [$0, nil] as [Lent?])
             },
