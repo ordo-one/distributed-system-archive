@@ -179,8 +179,8 @@ let benchmarks: @Sendable () -> () = {
     }
 }
 
-//  The whole batch travels as one array in one buffer: a count, then the elements, packed when
-//  they have a fixed size and each behind its ULEB128 length otherwise.
+//  The whole batch travels as one array in one buffer: a count, then the elements one after
+//  another, the integers packed and each string behind its own length.
 @inline(never) func roundtripBatch<Value>(
     _ values: [Value]
 ) throws(TransferError) -> [Value] where Value: Transferable {

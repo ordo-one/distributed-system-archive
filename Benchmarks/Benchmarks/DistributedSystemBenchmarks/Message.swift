@@ -2,7 +2,7 @@ import DistributedABI
 
 /// A message whose bytes are its wire form and live in an instance of a class, as the bytes of
 /// an SDK message live in its storage object: every copy of the message retains and releases
-/// it. Its size varies, so a collection frames each one with its length.
+/// it. Its size varies, so it writes its length before its bytes wherever it travels.
 final class Message {
     let bytes: [UInt8]
 

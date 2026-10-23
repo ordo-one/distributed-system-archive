@@ -1,9 +1,9 @@
 import DistributedABI
 
-/// A message that builds its bytes on every lend, as a computed-property table builds a new
-/// container each time it lends its bytes: every lend allocates them and encodes the fields
-/// into them, so the number of lends a send makes is most of its cost. Its size varies, so a
-/// collection frames each one with its length.
+/// A message that builds its bytes on every lend, as a value that travels as its JSON encodes
+/// itself each time it lends its bytes: every lend allocates them and encodes the fields into
+/// them, so the number of lends a send makes is most of its cost. Its size varies, so it writes
+/// its length before its bytes wherever it travels.
 struct Built {
     let fields: [UInt64]
 

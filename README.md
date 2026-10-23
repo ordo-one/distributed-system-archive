@@ -23,7 +23,7 @@ public protocol Transferable: Sendable {
 }
 ```
 
-The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with an `OutputRawSpan` over them. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the bytes, and the value consumes exactly the bytes it wrote. A type whose values all have the same size states it in `fixedTransferSize`, and a collection of such values packs them behind its count; such a type must then read exactly that many bytes.
+The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with an `OutputRawSpan` over them. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the arguments of the call; each value consumes exactly the bytes it wrote, the next argument reads on from there, and the transport refuses the call unless the arguments consume their bytes exactly. A type whose values all have the same size states it in `fixedTransferSize`; a collection of such values sizes itself from its count alone and checks that each element reads exactly that many bytes.
 
 A composite sums the sizes of its parts, writes them in order and reads them back in the same order. There is no second API for a part: `transferSize`, `transfer(into:)` and `init(transferring:)` are the whole of it.
 
@@ -50,6 +50,8 @@ struct Quote: Transferable {
     }
 }
 ```
+
+Nothing around a part marks where it ends, so a composite must read exactly the parts it wrote, in the same order. A part read short or long shifts every value after it, and the error, when one comes, is reported where the shifted bytes first fail to parse rather than at that part. The library’s own conformances read exactly what they write, and a collection still checks that an element of fixed size reads exactly that size; a hand-written composite needs a round-trip test that reads it back with a second copy of its bytes behind it, so that a read which stops early or runs on shows.
 
 The reader is a borrowed cursor. It is `~Escapable`, so neither the reader nor the spans it hands out can outlive the buffer they read, and the compiler refuses code that tries; a value that keeps bytes copies them. Running out of bytes, meeting a malformed number, or finding a discriminant out of range throws a `TransferError` instead of trapping, and a count or length that the bytes remaining could not hold is refused before anything is reserved: every element takes at least one byte on the wire, and its fixed size when its type has one. That bounds the number of elements a reader reserves room for, not the memory they take once decoded, which for strings and collections can exceed their bytes on the wire.
 

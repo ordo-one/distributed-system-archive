@@ -1,4 +1,5 @@
-/// A borrowed cursor over the bytes of one frame, argument or element.
+/// A borrowed cursor over the bytes of a frame, from which each value reads its own bytes in
+/// turn.
 ///
 /// The reader cannot outlive the buffer, page or array whose bytes it reads, and neither can
 /// the spans it hands out; a value that keeps bytes copies them. Every method that runs out of
