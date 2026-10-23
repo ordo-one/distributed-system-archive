@@ -26,7 +26,7 @@ extension Set: Transferable where Element: Transferable {
         let count: Int = try input.takeCount(of: Element.self)
         self.init(minimumCapacity: count)
         for i: Int in 0 ..< count {
-            guard case (inserted: true, _) = self.insert(try Element.init(transferring: &input)) else {
+            guard case (inserted: true, _) = self.insert(try input.takeElement(Element.self)) else {
                 throw .init(.duplicate(i))
             }
         }

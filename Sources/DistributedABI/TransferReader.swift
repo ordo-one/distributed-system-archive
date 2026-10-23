@@ -69,9 +69,28 @@ extension TransferReader {
             throw .init(.expected(size, encountered: self.remaining))
         }
         let value: Integer = self.bytes.load(fromByteOffset: self.index, as: Integer.self)
-        // cannot overflow, since `size` fits in the bytes remaining
+        // cannot overflow, since `size` fits in the bytes remaining; wrapping, so that
+        // `takeElement(_:)` can see that an integer reads exactly its size
         self.index &+= size
         return .init(littleEndian: value)
+    }
+
+    /// One value as the element of a collection. A value of fixed size must read exactly that
+    /// many bytes: a faulty conformer that read fewer or more would otherwise shift every
+    /// element after it, with nothing around the element to catch it.
+    @inlinable mutating func takeElement<Element>(
+        _: Element.Type
+    ) throws(TransferError) -> Element where Element: Transferable {
+        guard
+        let size: Int = Element.fixedTransferSize else {
+            return try .init(transferring: &self)
+        }
+        let start: Int = self.index
+        let value: Element = try .init(transferring: &self)
+        guard self.index &- start == size else {
+            throw .init(.expected(size, encountered: self.index &- start))
+        }
+        return value
     }
 
     /// Refuses the input unless every byte has been read.

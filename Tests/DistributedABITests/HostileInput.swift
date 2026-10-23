@@ -75,9 +75,9 @@ import Testing
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
             // bytes left over after the last element
             Hostile.init("bytes left over after elements", [1, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
-            // an element of fixed size that reads fewer bytes than its type states: with no frame
-            // around it, the byte it left is seen only at the end of the input
-            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(0, encountered: 1)),
+            // an element of fixed size that reads fewer bytes than its type states
+            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
+            Hostile.init("fixed-size key read short", [1, 5, 6, 7], as: [Undersized: UInt8].self, .expected(2, encountered: 1)),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),

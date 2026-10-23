@@ -19,8 +19,8 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
         let count: Int = try input.takeCount(keys: Key.self, values: Value.self)
         self.init(minimumCapacity: count)
         for i: Int in 0 ..< count {
-            let key: Key = try .init(transferring: &input)
-            let value: Value = try .init(transferring: &input)
+            let key: Key = try input.takeElement(Key.self)
+            let value: Value = try input.takeElement(Value.self)
             guard case nil = self.updateValue(value, forKey: key) else {
                 throw .init(.duplicate(i))
             }
