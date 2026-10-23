@@ -43,6 +43,7 @@ import Testing
             // counts within the bytes present, but not at the width of a fixed-size element
             Hostile.init("wide set count past end", [2] + .init(repeating: 0, count: 9), as: Set<UInt64>.self, .count(2, remaining: 9)),
             Hostile.init("contiguous count past end", [2, 1, 0, 2], as: ContiguousArray<Int16>.self, .count(2, remaining: 3)),
+            Hostile.init("own collection count past end", [2, 1, 0, 2], as: Batch<Int16>.self, .count(2, remaining: 3)),
             Hostile.init(
                 "inline array count past end",
                 [2] + .init(repeating: 0, count: 9),
@@ -61,6 +62,12 @@ import Testing
                 [2] + .init(repeating: 0, count: 10),
                 as: [UInt64: String].self,
                 .count(2, remaining: 10)
+            ),
+            Hostile.init(
+                "own keyed count past end",
+                [2] + .init(repeating: 0, count: 17),
+                as: Ledger<UInt64, UInt64>.self,
+                .count(2, remaining: 17)
             ),
             // an entry whose least size cannot be represented
             Hostile.init("entry size past Int.max", [1, 0, 0], as: [Oversized: UInt8].self, .count(1, remaining: 2)),
@@ -110,6 +117,13 @@ import Testing
             Hostile.init("fixed-size key read long", [1, 5, 6, 7], as: [Overreader: UInt8].self, .expected(1, encountered: 2)),
             Hostile.init("fixed-size value read long", [1, 7, 5, 6], as: [UInt8: Overreader].self, .expected(1, encountered: 2)),
             Hostile.init("fixed-size inline element read long", [5, 6], as: InlineArray<1, Overreader>.self, .expected(1, encountered: 2)),
+            Hostile.init("fixed-size element of one’s own read long", [1, 5, 6], as: Batch<Overreader>.self, .expected(1, encountered: 2)),
+            Hostile.init(
+                "fixed-size key of one’s own read long",
+                [1, 5, 6, 7],
+                as: Ledger<Overreader, UInt8>.self,
+                .expected(1, encountered: 2)
+            ),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),
             Hostile.init("dictionary duplicate", [2, 1, 1, 1, 2], as: [UInt8: UInt8].self, .duplicate(1)),

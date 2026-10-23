@@ -44,10 +44,17 @@ import Testing
             ([] as ContiguousArray<UInt8>, [0]),
             ([1, 2] as ContiguousArray<Int16>, [2, 1, 0, 2, 0]),
             (["ab", ""] as ContiguousArray<String>, [2, 2, 0x61, 0x62, 0]),
+            // and so does a collection of one’s own, conformed through the public helpers
+            ([1, 2] as Batch<Int16>, [2, 1, 0, 2, 0]),
+            (["ab", ""] as Batch<String>, [2, 2, 0x61, 0x62, 0]),
             ([5] as Set<UInt8>, [1, 5]),
             (["ab"] as Set<String>, [1, 2, 0x61, 0x62]),
             ([7: "x"] as [UInt8: String], [1, 7, 1, 0x78]),
             (["k": 3] as [String: UInt16], [1, 1, 0x6b, 3, 0]),
+            // a keyed collection of one’s own takes the wire form of a dictionary, and this one,
+            // which keeps its entries in order, may repeat a key
+            ([7: "x"] as Ledger<UInt8, String>, [1, 7, 1, 0x78]),
+            (["k": 3, "k": 4] as Ledger<String, UInt16>, [2, 1, 0x6b, 3, 0, 1, 0x6b, 4, 0]),
             // the count is ULEB128: one byte up to 127, two up to 16,383
             ([UInt8].init(repeating: 9, count: 127), [0x7f] + .init(repeating: 9, count: 127)),
             ([UInt8].init(repeating: 9, count: 128), [0x80, 0x01] + .init(repeating: 9, count: 128)),

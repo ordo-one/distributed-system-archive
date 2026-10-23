@@ -105,10 +105,15 @@ extension TransferReader {
         return .init(littleEndian: value)
     }
 
-    /// One value as the element of a collection. A value of fixed size must read exactly that
-    /// many bytes: a faulty conformer that read fewer or more would otherwise shift every
-    /// element after it, with nothing around the element to catch it.
-    @inlinable mutating func takeElement<Element>(
+    /// One value as the element of a collection, read through its
+    /// ``Transferable/init(transferring:)``. A value whose type states a
+    /// ``Transferable/fixedTransferSize`` must read exactly that many bytes, or the read is
+    /// refused with ``TransferError/Kind/expected(_:encountered:)``, carrying the fixed size
+    /// and then the number of bytes the value read: a faulty conformer that read fewer or more
+    /// would otherwise shift every element after it, with nothing around the element to catch
+    /// it. A collection of one’s own reads each of its elements, or each key and each value of
+    /// an entry, through this rather than through the element’s own initializer.
+    @inlinable public mutating func takeElement<Element>(
         _: Element.Type
     ) throws(TransferError) -> Element where Element: Transferable {
         guard
@@ -198,9 +203,14 @@ extension TransferReader {
     }
 }
 extension TransferReader {
-    /// A count of elements of one type, refused when the elements cannot fit in the bytes
-    /// remaining: one byte each at least, and their fixed size each when they have one.
-    @inlinable mutating func takeCount<Element>(
+    /// A ULEB128 count of elements of one type, as an array writes it, refused with
+    /// ``TransferError/Kind/count(_:remaining:)`` when that many elements cannot fit in the
+    /// bytes remaining: one byte each at least, and their fixed size each when their type
+    /// states one. A collection of one’s own reads its count through this before it reserves
+    /// room for its elements, so that a hostile count never reserves room for more elements
+    /// than the bytes present could hold, and then reads each element through
+    /// ``takeElement(_:)``.
+    @inlinable public mutating func takeCount<Element>(
         of _: Element.Type
     ) throws(TransferError) -> Int where Element: Transferable {
         let count: Int = try self.takeCount()
@@ -210,11 +220,14 @@ extension TransferReader {
         return count
     }
 
-    /// A count of dictionary entries, refused when the entries cannot fit in the bytes
-    /// remaining: a key and a value each take one byte at least, and their fixed size each
-    /// when their type has one. An entry whose size overflows `Int` cannot fit either, and
-    /// an empty dictionary is never refused, since it has no entry to fit.
-    @inlinable mutating func takeCount<Key, Value>(
+    /// A ULEB128 count of entries, as a dictionary writes it, refused with
+    /// ``TransferError/Kind/count(_:remaining:)`` when that many entries cannot fit in the
+    /// bytes remaining: a key and a value each take one byte at least, and their fixed size
+    /// each when their type states one. An entry whose size overflows `Int` cannot fit either,
+    /// and a count of zero is never refused, since it has no entry to fit. A keyed collection
+    /// of one’s own reads its count through this before it reserves room for its entries, and
+    /// then reads each key and its value through ``takeElement(_:)``.
+    @inlinable public mutating func takeCount<Key, Value>(
         keys _: Key.Type,
         values _: Value.Type
     ) throws(TransferError) -> Int where Key: Transferable, Value: Transferable {

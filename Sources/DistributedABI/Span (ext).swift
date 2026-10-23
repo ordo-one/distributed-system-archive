@@ -1,6 +1,10 @@
 extension Span where Element: Transferable {
-    /// The size of these elements as the wire form of a collection: a ULEB128 count, then the
-    /// elements one after another, each of which delimits itself.
+    /// The number of bytes these elements take as the wire form of a collection: a ULEB128
+    /// count, then the elements one after another, each of which delimits itself. The count is
+    /// included, so this is the ``Transferable/transferSize`` of an ``Swift/Array`` with the
+    /// same elements, and a collection of one’s own that writes an array’s wire form can return
+    /// it from its own `transferSize`, over a span of its elements. Elements of a fixed size
+    /// are sized from the count alone, without visiting any of them.
     ///
     /// Indexing the span lends each element where it lies. Where this body is specialized for
     /// the element type, as it is in a client that names the type, the optimizer can size the
@@ -9,7 +13,7 @@ extension Span where Element: Transferable {
     /// size and destroy the copy after, which retains and releases an element that holds a
     /// reference. A loop over the array itself copies each element unless the optimizer can
     /// show the copy is not needed, which depends on how the element lends its bytes.
-    @inlinable var elementsTransferSize: Int {
+    @inlinable public var elementsTransferSize: Int {
         let header: Int = ULEB128.size(UInt.init(self.count))
         if  let size: Int = Element.fixedTransferSize {
             return header + self.count * size

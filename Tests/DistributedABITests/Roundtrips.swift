@@ -101,6 +101,9 @@ import Foundation
             [] as ContiguousArray<String>,
             ["", "a", "abc"] as ContiguousArray<String>,
             [0, 1, .min, .max] as ContiguousArray<Int>,
+            [] as Batch<String>,
+            ["", "a", "abc"] as Batch<String>,
+            [0, 1, .min, .max] as Batch<Int>,
             [] as Set<String>,
             ["", "a", "abc"] as Set<String>,
             [[], [""], ["", "a"]] as Set<Set<String>>,
@@ -109,6 +112,8 @@ import Foundation
             ["": "", "a": "b", "abc": "def"] as [String: String],
             [[:]: [:], ["a": "b"]: ["c": "d"]] as [[String: String]: [String: String]],
             [1: ["a": 1, "b": .min], 2: [:]] as [Int: [String: Int]],
+            [:] as Ledger<String, Int>,
+            ["a": 1, "": .min, "a": 2] as Ledger<String, Int>,
             [.buy, .sell, .buy] as [Side],
             [.primary, .dark] as [Venue],
         ] as [any Transferable & Equatable]
