@@ -1,0 +1,44 @@
+import DistributedABI
+
+/// A message that builds its bytes on every lend, as a computed-property table builds a new
+/// container each time it lends its bytes: every lend allocates them and encodes the fields
+/// into them, so the number of lends a send makes is most of its cost. Its size varies, so a
+/// collection frames each one with its length.
+struct Built {
+    let fields: [UInt64]
+
+    init(fields: [UInt64]) {
+        self.fields = fields
+    }
+}
+extension Built: ContiguousTransferable {
+    func withTransferBytes<Result>(_ body: (RawSpan) throws -> Result) rethrows -> Result {
+        let bytes: [UInt8] = self.build()
+        return try body(bytes.span.bytes)
+    }
+    init(transferBytes: RawSpan) throws(TransferError) {
+        var input: TransferReader = .init(transferBytes)
+        let count: UInt32 = try input.take(UInt32.self)
+        var fields: [UInt64] = []
+        for _: UInt32 in 0 ..< count {
+            fields.append(try input.take(UInt64.self))
+        }
+        try input.finish()
+        self.init(fields: fields)
+    }
+}
+extension Built {
+    /// The bytes, built anew: the number of fields, then each field, little-endian.
+    @inline(never) func build() -> [UInt8] {
+        let size: Int = 4 + 8 * self.fields.count
+        return .init(unsafeUninitializedCapacity: size) {
+            let buffer: UnsafeMutableRawBufferPointer = .init($0)
+            var output: OutputRawSpan = .init(buffer: buffer, initializedCount: 0)
+            output.append(littleEndian: UInt32.init(self.fields.count))
+            for field: UInt64 in self.fields {
+                output.append(littleEndian: field)
+            }
+            $1 = output.finalize(for: buffer)
+        }
+    }
+}

@@ -4,7 +4,9 @@ import DistributedABI
 //  A send as the transport makes one: the frame is sized from `transferSize`, then the value
 //  is written into it through `transfer(into:)`. Each collection holds 16 messages of 316
 //  bytes, the size of an SDK transaction, whose bytes live in a class instance, so every copy
-//  of an element costs a retain and a release.
+//  of an element costs a retain and a release. The arrays of built messages hold 1 and 100
+//  messages of 316 bytes that build their bytes on every lend, as a computed-property table
+//  does, so they measure the lends a send makes.
 
 @inline(never) func send<Value>(
     _ value: Value,
@@ -54,4 +56,10 @@ func registerSendBenchmarks() {
             uniqueKeysWithValues: messages.enumerated().map { (UInt64.init($0), $1) }
         )
     )
+
+    let built: [Built] = (0 ..< 100).map { (i: Int) in
+        .init(fields: (0 ..< 39).map { UInt64.init(i * 39 + $0) &* 0x9e37_79b9_7f4a_7c15 })
+    }
+    register("SendArray built x1", [built[0]])
+    register("SendArray built x100", built)
 }
