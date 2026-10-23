@@ -14,11 +14,18 @@ let benchmarks: @Sendable () -> () = {
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let ints: [Int] = [_].init(0 ... 10000)
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: ints.reduce(0) { max($0, $1.transferSize) },
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
 
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
-            blackHole(try roundtrip(ints))
+            blackHole(try roundtrip(ints, frame: frame))
         }
     }
     Benchmark.init(
@@ -26,11 +33,18 @@ let benchmarks: @Sendable () -> () = {
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let ints: [Int?] = (0 ... 10000).map { $0 }
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: ints.reduce(0) { max($0, $1.transferSize) },
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
 
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
-            blackHole(try roundtrip(ints))
+            blackHole(try roundtrip(ints, frame: frame))
         }
     }
     Benchmark.init(
@@ -38,11 +52,18 @@ let benchmarks: @Sendable () -> () = {
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let strings: [String] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: strings.reduce(0) { max($0, $1.transferSize) },
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
 
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
-            blackHole(try roundtrip(strings))
+            blackHole(try roundtrip(strings, frame: frame))
         }
     }
     Benchmark.init(
@@ -50,11 +71,18 @@ let benchmarks: @Sendable () -> () = {
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let strings: [String?] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: strings.reduce(0) { max($0, $1.transferSize) },
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
 
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
-            blackHole(try roundtrip(strings))
+            blackHole(try roundtrip(strings, frame: frame))
         }
     }
     Benchmark.init(
@@ -111,6 +139,27 @@ let benchmarks: @Sendable () -> () = {
     registerStringBenchmarks()
     // Sends of class-backed messages (see Sends.swift).
     registerSendBenchmarks()
+}
+
+//  Each value is written into one frame allocated before the measurement and read back from
+//  it, as the transport writes a value into a frame and reads it from there, so the row counts
+//  the codec and not an allocation per value.
+@inline(never) func roundtrip<Value>(
+    _ values: [Value],
+    frame: UnsafeMutableRawBufferPointer
+) throws(TransferError) -> [Value] where Value: Transferable {
+    try values.map { (value: Value) throws(TransferError) -> Value in
+        var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
+        value.transfer(into: &output)
+        let decoded: Value
+        do {
+            var input: TransferReader = .init(output.bytes)
+            decoded = try .init(transferring: &input)
+            try input.finish()
+        }
+        _ = output.finalize(for: frame)
+        return decoded
+    }
 }
 
 //  Each value becomes its own `[UInt8]`, sized from `transferSize`, and is read back from it,
