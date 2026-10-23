@@ -54,6 +54,16 @@ extension TransferReader {
         return span
     }
 
+    /// The bytes of a contiguous value of variable size, as ``takePrefixed()`` reads them, but
+    /// emitted into the client and kept out of line. The read around it is then small enough
+    /// for a client to inline into its caller, which calls the type’s open directly. With the
+    /// length read inline, the read was too large to inline, and stayed a function of its own,
+    /// which the optimizer merged across types and reached through a thunk per type.
+    @_lifetime(copy self)
+    @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func takeContiguous() throws(TransferError) -> RawSpan {
+        try self.takePrefixed()
+    }
+
     /// The bytes of a string: a ULEB128 length, then that many bytes, with only a length of
     /// one byte read inline, as the length of a short string is. Always inlined, as
     /// ``takePrefixed()`` is, but smaller, so that a client still inlines the whole string

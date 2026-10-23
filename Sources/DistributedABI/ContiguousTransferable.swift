@@ -43,7 +43,7 @@ extension ContiguousTransferable {
         if  let size: Int = Self.fixedTransferSize {
             try self.init(transferBytes: try input.take(size))
         } else {
-            try self.init(transferBytes: try input.takePrefixed())
+            try self.init(transferBytes: try input.takeContiguous())
         }
     }
 }
