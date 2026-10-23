@@ -586,6 +586,11 @@ func registerPayloadBenchmarks() {
     register("Resource", (0 ..< messageCount).map(PayloadFixtures.resource), frame: 512)
 
     // -- ComputedPropertySubscriptionLike across object counts (Big-O slope) --
+    //  Each settings value on its own as well, so that a value which reads other than it writes
+    //  is named here rather than found as a mismatch somewhere later in the message.
+    for setting: PropertyLike in PayloadFixtures.settings() {
+        precondition(debugRoundtripOK(setting.value), "\(setting.value) roundtrip mismatch")
+    }
     //  Fewer messages per iteration for the large object counts so total work per iteration
     //  stays bounded; per-element instructions are derived from the slope across counts.
     for objectCount: Int in [10, 100, 1_000, 10_000] {
@@ -599,7 +604,9 @@ func registerPayloadBenchmarks() {
 }
 
 /// A quick round-trip validation used at fixture-build time so we KNOW the conformance agrees
-/// with itself, and writes exactly the bytes it states, before measuring.
+/// with itself, writes exactly the bytes it states, and reads exactly those bytes back when
+/// more follow them, as every value must, since nothing around it marks where it ends, before
+/// measuring.
 func debugRoundtripOK<Message>(_ message: Message) -> Bool
     where Message: Transferable & Equatable {
     let bytes: [UInt8] = .init(transferring: message)
@@ -607,7 +614,16 @@ func debugRoundtripOK<Message>(_ message: Message) -> Bool
         return false
     }
     do {
-        return try Message.decode(bytes) == message
+        guard try Message.decode(bytes) == message else {
+            return false
+        }
+        //  the same bytes twice over: the first read must stop where the second begins
+        let twice: [UInt8] = bytes + bytes
+        var input: TransferReader = .init(twice.span.bytes)
+        let first: Message = try .init(transferring: &input)
+        let second: Message = try .init(transferring: &input)
+        try input.finish()
+        return first == message && second == message
     } catch {
         return false
     }
