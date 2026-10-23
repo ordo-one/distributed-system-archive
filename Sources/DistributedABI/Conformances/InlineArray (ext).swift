@@ -1,8 +1,9 @@
 extension InlineArray: Transferable where Element: Transferable {
     /// An inline array travels as its elements one after another, each of which delimits
-    /// itself, with no count in front of them, since the count is part of its type. An empty
-    /// inline array writes one zero byte instead, since every value takes at least one, and
-    /// any other byte in its place is a ``TransferError/Kind/discriminant(_:)`` error.
+    /// itself, with no count in front of them, since the count is part of its type. An inline
+    /// array of count 0 (`InlineArray<0, Element>`) writes one zero byte instead, since every
+    /// value takes at least one, and any other byte in its place is a
+    /// ``TransferError/Kind/discriminant(_:)`` error.
     ///
     /// The fixed size is one byte when the count is zero. Otherwise it is the count times the
     /// element’s fixed size, when the element states one and the product fits in `Int`, so
