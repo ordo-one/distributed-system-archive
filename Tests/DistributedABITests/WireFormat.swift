@@ -56,6 +56,9 @@ import Testing
             (Venue.primary, [0x02, 0x01]),
             // a contiguous value lends its bytes unchanged, behind its length when its size varies
             (Row.init(bytes: [3, 1, 4]), [3, 3, 1, 4]),
+            // a contiguous value of no bytes is its length alone
+            (Blob.init(bytes: []), [0]),
+            ([.init(bytes: []), .init(bytes: [7])] as [Blob], [2, 0, 1, 7]),
             // a length of two bytes, as a serialized message of 128 to 16,383 bytes has
             (Row.init(bytes: .init(repeating: 9, count: 128)), [0x80, 0x01] + .init(repeating: 9, count: 128)),
             (
@@ -159,6 +162,26 @@ import Testing
         #expect(bytes == expected)
         #expect(ULEB128.size(value) == expected.count)
     }
+
+    /// A string, a substring and a contiguous value at the lengths where their ULEB128 length
+    /// grows a byte, each with another byte behind it: the read must stop exactly where the
+    /// value ends, whichever form its length took.
+    @Test(
+        arguments: [
+            (127, [0x7f]),
+            (128, [0x80, 0x01]),
+            (16_383, [0xff, 0x7f]),
+            (16_384, [0x80, 0x80, 0x01]),
+        ] as [(Int, [UInt8])]
+    ) static func Lengths(_ length: Int, _ prefix: [UInt8]) throws {
+        let text: String = .init(repeating: "x", count: length)
+        try Self.check(followed: text, prefix + .init(repeating: 0x78, count: length))
+        try Self.check(followed: text[...], prefix + .init(repeating: 0x78, count: length))
+        try Self.check(
+            followed: Blob.init(bytes: .init(repeating: 9, count: length)),
+            prefix + .init(repeating: 9, count: length)
+        )
+    }
 }
 extension WireFormat {
     private static func check<Value>(
@@ -168,5 +191,24 @@ extension WireFormat {
         #expect([UInt8].init(transferring: value) == expected)
         #expect(value.transferSize == expected.count)
         #expect(try Value.decode(expected) == value)
+    }
+
+    /// Checks the bytes of `value` with one more byte behind them, and that a read of `value`
+    /// leaves exactly that byte.
+    private static func check<Value>(
+        followed value: Value,
+        _ expected: [UInt8]
+    ) throws where Value: Transferable & Equatable {
+        let bytes: [UInt8] = .init(capacity: value.transferSize + 1) {
+            value.transfer(into: &$0)
+            $0.append(0xa5)
+        }
+        #expect(bytes == expected + [0xa5])
+        var input: TransferReader = .init(bytes.span.bytes)
+        let decoded: Value = try .init(transferring: &input)
+        let next: UInt8 = try input.take(UInt8.self)
+        try input.finish()
+        #expect(decoded == value)
+        #expect(next == 0xa5)
     }
 }
