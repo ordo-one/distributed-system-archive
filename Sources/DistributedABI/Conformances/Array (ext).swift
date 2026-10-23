@@ -13,7 +13,7 @@ extension Array: Transferable where Element: Transferable {
     @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.count))
         for element: Element in self {
-            element.transfer(into: &output)
+            output.append(element: element)
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

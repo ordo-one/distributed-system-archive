@@ -75,6 +75,20 @@ extension TransferWriter {
         self.output.append(value.littleEndian, as: Integer.self)
     }
 
+    /// Writes `value` as the part of a collection. A debug build checks that it wrote at least
+    /// one byte, as every value must, here, where the type that broke the rule is still known;
+    /// a release build compiles the check away.
+    @inlinable @inline(always) mutating func append<Element>(
+        element value: Element
+    ) where Element: Transferable {
+        let start: Int = self.output.byteCount
+        value.transfer(into: &self)
+        assert(
+            self.output.byteCount > start,
+            "\(Element.self) wrote no bytes, but every value takes at least one"
+        )
+    }
+
     /// Appends a ULEB128 length, then `bytes`: the inverse of
     /// ``TransferReader/takePrefixed()``.
     @inlinable public mutating func append(prefixed bytes: RawSpan) {

@@ -67,6 +67,10 @@ import Testing
             // when it does not
             ([.init(1), .init(2)] as [Identifier], [2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]),
             ([.init(bytes: [3]), .init(bytes: [1, 4])] as [Row], [2, 1, 3, 2, 1, 4]),
+            // a composite with no fields writes a byte of its own, so it reads back from inside
+            // a collection, which refuses a count the bytes remaining could not hold
+            (Marker.init(), [0]),
+            ([.init(), .init()] as [Marker], [2, 0, 0]),
         ] as [(any Transferable & Equatable, [UInt8])]
     ) static func Bytes(_ value: any Transferable & Equatable, _ expected: [UInt8]) throws {
         try Self.check(value, expected)

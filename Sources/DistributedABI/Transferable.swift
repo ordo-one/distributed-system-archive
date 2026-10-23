@@ -17,7 +17,12 @@ public protocol Transferable: Sendable {
     /// exactly that many in ``init(transferring:)``. The size is at least one byte.
     static var fixedTransferSize: Int? { get }
 
-    /// The exact number of bytes ``transfer(into:)`` writes.
+    /// The exact number of bytes ``transfer(into:)`` writes, at least one.
+    ///
+    /// A collection refuses a count of elements that the bytes remaining could not hold at one
+    /// byte each, before it reserves anything, so a value of no bytes would not read back from
+    /// inside one. A composite with no fields writes a byte of its own, such as a version or a
+    /// zero, and reads it back.
     var transferSize: Int { get }
 
     /// Writes exactly ``transferSize`` bytes into `output`, which has room for them.
