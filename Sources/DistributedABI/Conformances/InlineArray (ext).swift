@@ -8,14 +8,14 @@ extension InlineArray: Transferable where Element: Transferable {
     /// element’s fixed size, so that a composite holding an inline array keeps a fixed size.
     /// It is nil when the element has none, or when the product overflows `Int`.
     @inlinable public static var fixedTransferSize: Int? {
-        if  Self.count == 0 {
+        if  count == 0 {
             return 1
         }
         guard
         let size: Int = Element.fixedTransferSize else {
             return nil
         }
-        let product: (partialValue: Int, overflow: Bool) = Self.count
+        let product: (partialValue: Int, overflow: Bool) = count
             .multipliedReportingOverflow(by: size)
         return product.overflow ? nil : product.partialValue
     }
@@ -31,7 +31,7 @@ extension InlineArray: Transferable where Element: Transferable {
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
-        if  Self.count == 0 {
+        if  count == 0 {
             output.append(0)
             return
         }
@@ -42,7 +42,7 @@ extension InlineArray: Transferable where Element: Transferable {
     /// Reads each element through ``TransferReader/takeElement(_:)``, so that an element of
     /// fixed size must read exactly that many bytes.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        if  Self.count == 0 {
+        if  count == 0 {
             switch try input.take(UInt8.self) {
             case 0: break
             case let code: throw .init(.discriminant(.init(code)))
