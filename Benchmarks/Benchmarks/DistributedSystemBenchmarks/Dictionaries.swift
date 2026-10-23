@@ -5,11 +5,11 @@ import DistributedABI
 //  shape: the read builds a dictionary of strings for every entry, which is most of the round
 //  trip and hides any change to the write. The write sizes each value from `transferSize` and
 //  writes it into one frame, reserved before the measurement for the largest value, as a send
-//  does, so it leaves out the `[UInt8]` the round trip allocates for each value; the read
-//  decodes each value from bytes written before the measurement, and keeps the values until the
-//  last, as the round trip does. The contents are the same in every run, but the order of each
-//  dictionary’s entries, in memory and on the wire, still follows the hash seed of the process.
-//  Both rows are `Standard`, as the round trip is: the dictionary is a standard type.
+//  does and as the round trip does; the read decodes each value from bytes written before the
+//  measurement, and keeps the values until the last, as the round trip does. The contents are
+//  the same in every run, but the order of each dictionary’s entries, in memory and on the
+//  wire, still follows the hash seed of the process. Both rows are `Standard`, as the round
+//  trip is: the dictionary is a standard type.
 
 func registerDictionaryBenchmarks() {
     let config: Benchmark.Configuration = .init(metrics: .default, timeUnits: .microseconds)
@@ -44,7 +44,8 @@ func registerDictionaryBenchmarks() {
     }
 }
 
-//  The read half of `roundtrip(_:)`: each value is read back from its own `[UInt8]`.
+//  The read half of the dictionary round trip: each value is read back from its own `[UInt8]`,
+//  written before the measurement.
 @inline(never) func read<Value>(
     _ frames: [[UInt8]],
     as _: Value.Type

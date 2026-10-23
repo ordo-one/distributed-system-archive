@@ -130,11 +130,18 @@ let benchmarks: @Sendable () -> () = {
                 }
             }
         }
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: dictionaries.reduce(0) { max($0, $1.transferSize) },
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
 
         $0.startMeasurement()
 
         for _ in $0.scaledIterations {
-            blackHole(try roundtrip(dictionaries))
+            blackHole(try roundtrip(dictionaries, frame: frame))
         }
     }
 
@@ -166,16 +173,6 @@ let benchmarks: @Sendable () -> () = {
         }
         _ = output.finalize(for: frame)
         return decoded
-    }
-}
-
-//  Each value becomes its own `[UInt8]`, sized from `transferSize`, and is read back from it,
-//  the shape #23 measured: the wire buffer is part of the cost.
-@inline(never) func roundtrip<Value>(
-    _ values: [Value]
-) throws(TransferError) -> [Value] where Value: Transferable {
-    try values.map { (value: Value) throws(TransferError) -> Value in
-        try .decode(.init(transferring: value))
     }
 }
 
