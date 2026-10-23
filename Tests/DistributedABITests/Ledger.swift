@@ -2,6 +2,11 @@ import DistributedABI
 
 /// A keyed collection of one’s own, which keeps its entries in order and may repeat a key,
 /// conformed in the wire form of a dictionary through the library’s public helpers alone.
+///
+/// It reads and writes each key and each value on its own: the wire form interleaves them, and
+/// it keeps them in two arrays, so no run of its storage is the bytes of its entries, and the
+/// helpers that copy a collection’s storage at once, `TransferWriter.append(elements:)` and
+/// `TransferReader.takeElements(_:into:)`, do not apply.
 struct Ledger<Key, Value> {
     let keys: [Key]
     let values: [Value]

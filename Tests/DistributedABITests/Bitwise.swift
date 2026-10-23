@@ -246,6 +246,57 @@ import Testing
         }
     }
 
+    /// A collection of one’s own that writes and reads its storage through the public helpers
+    /// takes the copy (the probe shows it), writes the bytes of an array, and refuses what a read
+    /// of one element at a time refuses, for wrappers, `Bool` and a case-index enumeration.
+    @Test static func CollectionsOfOnesOwn() throws {
+        #if _endian(little)
+        let probes: Batch<Probe> = [.init(0x0102), .init(0x0304)]
+        let stored: [UInt8] = [2] + Self.littleEndian(0x0102) + Self.littleEndian(0x0304)
+        #expect([UInt8].init(transferring: probes) == stored)
+        #expect(try Batch<Probe>.decode(stored) == probes)
+        #endif
+
+        let tickets: Batch<Ticket> = [.init(rawValue: 1), .init(rawValue: .max)]
+        let golden: [UInt8] = [2] + Self.littleEndian(1) + Self.littleEndian(.max)
+        #expect([UInt8].init(transferring: tickets) == golden)
+        #expect(try Batch<Ticket>.decode(golden) == tickets)
+        #expect([UInt8].init(transferring: [] as Batch<Ticket>) == [0])
+        #expect(try Batch<Ticket>.decode([0]) == [])
+
+        let flags: Batch<Bool> = [true, false, true]
+        #expect([UInt8].init(transferring: flags) == [3, 1, 0, 1])
+        #expect(try Batch<Bool>.decode([3, 1, 0, 1]) == flags)
+        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .discriminant(2))
+
+        for bytes: [UInt8] in [[3, 0, 1, 2], [3, 0, 3, 2], [3, 0, 1], [3, 0xff], [2], []] {
+            #expect(Self.refusal(bytes, as: Batch<Mark>.self) == Self.refusal(bytes, as: [UnstatedMark].self))
+            #expect(Self.refusal(bytes, as: Batch<Ticket>.self) == Self.refusal(bytes, as: [UnstatedTicket].self))
+        }
+    }
+
+    /// A run of composites cut short is refused where its first field runs out of bytes, as a
+    /// read of one element at a time refuses it, not at the size of the whole element: the copy
+    /// is taken only when the bytes remaining hold the whole run.
+    @Test(arguments: 0 ... 24) static func CompositesCutShort(_ length: Int) throws {
+        let golden: [UInt8] = [
+            4, 3, 2, 1, 5, 0, 0, 0,
+            0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0,
+            7, 0, 0, 0, 8, 0, 0, 0,
+        ]
+        let prefix: [UInt8] = .init(golden.prefix(length))
+        #expect(
+            Self.refusal(prefix, as: InlineArray<3, Pair>.self)
+                == Self.refusal(prefix, as: InlineArray<3, UnstatedPair>.self)
+        )
+        let counted: [UInt8] = [3] + prefix
+        #expect(Self.refusal(counted, as: Batch<Pair>.self) == Self.refusal(counted, as: Batch<UnstatedPair>.self))
+        if  length == golden.count {
+            let read: InlineArray<3, Pair> = try .decode(golden)
+            #expect(read[0] == .init(low: 0x0102_0304, high: 5) && read[2] == .init(low: 7, high: 8))
+        }
+    }
+
     /// A type of more than one byte that states a case count travels one element at a time.
     @Test static func CaseCountOfAWideType() throws {
         let marks: [WideMark] = [.init(rawValue: 7), .init(rawValue: 0x0102)]

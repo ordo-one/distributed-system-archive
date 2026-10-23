@@ -47,7 +47,8 @@ extension InlineArray: Transferable where Element: Transferable {
             output.append(element: self[i])
         }
     }
-    /// Reads elements stored as their transfer bytes with one copy, and others each through
+    /// Reads elements stored as their transfer bytes with one copy, through
+    /// ``TransferReader/takeElements(_:into:)``, and others each through
     /// ``TransferReader/takeElement(_:)``, so that an element of fixed size must read exactly
     /// that many bytes.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
@@ -56,23 +57,10 @@ extension InlineArray: Transferable where Element: Transferable {
             case 0: break
             case let code: throw .init(.discriminant(.init(code)))
             }
-        } else if case let (size, cases)? = Element.bitwiseTransfer {
-            // cannot overflow, since the elements already fit in memory at that stride
-            guard count &* size <= input.remaining else {
-                // the error a read of one element at a time reports at the first element cut
-                // short, or at a byte of no case before it, so that the bulk read refuses
-                // truncated bytes exactly as it does
-                if  let cases: Int {
-                    try input.takeRemaining().checkDiscriminants(below: cases)
-                    throw .init(.expected(1, encountered: 0))
-                }
-                throw .init(.expected(size, encountered: input.remaining % size))
+        } else if case _? = Element.bitwiseTransfer {
+            self = try .init { (output: inout OutputSpan<Element>) throws(TransferError) in
+                try input.takeElements(count, into: &output)
             }
-            let bytes: RawSpan = try input.take(count &* size)
-            if  let cases: Int {
-                try bytes.checkDiscriminants(below: cases)
-            }
-            self = .init { $0.append(bitwise: bytes, count: count) }
             return
         }
         self = try .init { (_: Int) throws(TransferError) -> Element in

@@ -1,7 +1,7 @@
 import DistributedABI
 
-/// A range-replaceable collection of one’s own, conformed in the wire form of an array through
-/// the library’s public helpers alone, as the SDK or a plugin would conform one.
+/// A collection of one’s own with contiguous storage, conformed in the wire form of an array
+/// through the library’s public helpers alone, as the SDK or a plugin would conform one.
 struct Batch<Element> {
     var elements: [Element]
 
@@ -39,13 +39,21 @@ extension Batch: RangeReplaceableCollection {
 extension Batch: Transferable where Element: Transferable {
     var transferSize: Int { self.elements.span.arrayTransferSize }
 
+    /// Its elements lie in contiguous storage, so it writes them from a span of it, with one
+    /// copy when their type states that it is stored as its transfer bytes.
     func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.elements.count))
-        for element: Element in self.elements {
-            output.append(element: element)
-        }
+        output.append(elements: self.elements.span)
     }
+    /// It reads its elements into the storage an output span lends, with one copy when their
+    /// type states that it is stored as its transfer bytes.
     init(transferring input: inout TransferReader) throws(TransferError) {
-        try self.init(transferringElements: &input)
+        let count: Int = try input.takeCount(of: Element.self)
+        var elements: [Element] = []
+        try elements.append(addingCapacity: count) {
+            (output: inout OutputSpan<Element>) throws(TransferError) in
+            try input.takeElements(count, into: &output)
+        }
+        self.init(elements: elements)
     }
 }

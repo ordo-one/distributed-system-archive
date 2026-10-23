@@ -36,6 +36,28 @@ struct Pair: Equatable, Transferable {
     }
 }
 
+/// The same composite as ``Pair`` with no statement, read one element at a time: the reference
+/// its copy is compared against.
+struct UnstatedPair: Equatable, Transferable {
+    let low: UInt32
+    let high: UInt32
+
+    static var fixedTransferSize: Int? { 8 }
+    var transferSize: Int { 8 }
+
+    func transfer(into output: inout TransferWriter) {
+        self.low.transfer(into: &output)
+        self.high.transfer(into: &output)
+    }
+    init(low: UInt32, high: UInt32) {
+        self.low = low
+        self.high = high
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        self.init(low: try .init(transferring: &input), high: try .init(transferring: &input))
+    }
+}
+
 /// A composite that states it is stored as its transfer bytes although it is not: nine bytes on
 /// the wire, a stride of sixteen in memory. An array of them must travel one element at a time.
 struct TrailingPadding: Equatable, Transferable {
