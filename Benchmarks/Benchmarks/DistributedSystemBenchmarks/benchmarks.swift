@@ -103,6 +103,8 @@ let benchmarks: @Sendable () -> () = {
         }
     }
 
+    // The write and the read of `RoundtripDictionary?` apart (see Dictionaries.swift).
+    registerDictionaryBenchmarks()
     // Production-representative payload benchmarks (see Payloads.swift).
     registerPayloadBenchmarks()
     // String writes on their own (see Strings.swift).
