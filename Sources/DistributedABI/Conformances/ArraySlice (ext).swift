@@ -20,15 +20,9 @@ extension ArraySlice: Transferable where Element: Transferable {
             output.append(element: element)
         }
     }
-    /// Elements stored as their transfer bytes are read with one copy into new storage, and
-    /// others one at a time; either way, a count the bytes remaining cannot hold is refused
-    /// before anything is reserved.
+    /// Reads an ``Swift/Array`` of the same elements, exactly as an array reads itself, and
+    /// slices it whole, sharing its storage.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        guard case _? = Element.bitwiseTransfer else {
-            try self.init(transferringElements: &input)
-            return
-        }
-        // an array of them, read with one copy, sliced whole, which shares its storage
         self = try Array<Element>.init(transferring: &input)[...]
     }
 }
