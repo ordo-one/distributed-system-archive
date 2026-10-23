@@ -14,7 +14,7 @@ extension Oversized {
     static var fixedTransferSize: Int? { .max }
     var transferSize: Int { 1 }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         output.append(self.byte)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {

@@ -7,7 +7,7 @@ extension [UInt8] {
         self = .init(unsafeUninitializedCapacity: size) {
             let buffer: UnsafeMutableRawBufferPointer = .init($0)
             var output: OutputRawSpan = .init(buffer: buffer, initializedCount: 0)
-            value.transfer(into: &output)
+            output.withTransferWriter { value.transfer(into: &$0) }
             $1 = output.finalize(for: buffer)
         }
     }

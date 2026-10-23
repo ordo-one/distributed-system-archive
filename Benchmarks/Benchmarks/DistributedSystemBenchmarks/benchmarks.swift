@@ -157,7 +157,7 @@ let benchmarks: @Sendable () -> () = {
 ) throws(TransferError) -> [Value] where Value: Transferable {
     try values.map { (value: Value) throws(TransferError) -> Value in
         var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
-        value.transfer(into: &output)
+        output.withTransferWriter { value.transfer(into: &$0) }
         let decoded: Value
         do {
             var input: TransferReader = .init(output.bytes)

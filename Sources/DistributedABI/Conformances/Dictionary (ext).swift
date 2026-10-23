@@ -8,7 +8,7 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
         }
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.count))
         for (key, value): (Key, Value) in self {
             key.transfer(into: &output)

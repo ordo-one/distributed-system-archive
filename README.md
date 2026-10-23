@@ -18,12 +18,12 @@ Every value delimits itself on the wire. A leaf whose size varies (a string, a s
 public protocol Transferable: Sendable {
     static var fixedTransferSize: Int? { get }      // nil unless every value has one size
     var transferSize: Int { get }                   // the exact number of bytes written
-    func transfer(into output: inout OutputRawSpan)
+    func transfer(into output: inout TransferWriter)
     init(transferring input: inout TransferReader) throws(TransferError)
 }
 ```
 
-The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with an `OutputRawSpan` over them. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the arguments of the call; each value consumes exactly the bytes it wrote, the next argument reads on from there, and the transport refuses the call unless the arguments consume their bytes exactly. A type whose values all have the same size states it in `fixedTransferSize`; a collection of such values sizes itself from its count alone and checks that each element reads exactly that many bytes.
+The transport asks a value for its `transferSize`, reserves exactly that many bytes, and calls `transfer(into:)` with a `TransferWriter` over them: one call, `withTransferWriter`, lends the frame’s `OutputRawSpan` to the writer and takes it back with every byte written. The writer is the counterpart of `TransferReader`, and carries the library’s wire helpers, `append(_:)` for one byte, `append(bytes:)`, `append(uleb128:)`, `append(prefixed:)` and `append(littleEndian:)`, so that they stay off the standard library’s `OutputRawSpan`. To read it back, the transport hands `init(transferring:)` a `TransferReader` over the arguments of the call; each value consumes exactly the bytes it wrote, the next argument reads on from there, and the transport refuses the call unless the arguments consume their bytes exactly. A type whose values all have the same size states it in `fixedTransferSize`; a collection of such values sizes itself from its count alone and checks that each element reads exactly that many bytes.
 
 A composite sums the sizes of its parts, writes them in order and reads them back in the same order. There is no second API for a part: `transferSize`, `transfer(into:)` and `init(transferring:)` are the whole of it.
 
@@ -38,7 +38,7 @@ struct Quote: Transferable {
             + self.venue.transferSize
             + self.levels.transferSize
     }
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.instrument.transfer(into: &output)
         self.venue.transfer(into: &output)
         self.levels.transfer(into: &output)
@@ -107,7 +107,7 @@ A set or a dictionary that repeats an element or a key is refused. Set and dicti
 
 ## Building and using the library
 
-DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The unsafe operations in the library are the memcpy inside `OutputRawSpan.append(bytes:)` and, in the string conformances, the view of a native string’s UTF-8 storage as a span for that copy, because the standard library lends that storage to inlinable code only as a pointer; no public declaration mentions an unsafe pointer. The deployment target is macOS 26 or iOS 26 because of the UTF-8 APIs the string conformances use, `UTF8Span`, `String.utf8Span` and `String.init(copying:)`, and because of `Array.span`, through which an array sizes elements of variable size; all four are new there, while `RawSpan` and `OutputRawSpan` back-deploy to earlier releases. Building the package takes Swift 6.3 or later, as its manifests state, for the `@inline(always)` attribute of SE-0496.
+DistributedABI is built with library evolution as a binary framework, and every body on the hot path is `@inlinable`, so a client specializes `Array<Transaction>.transfer(into:)` and the reader in its own module. The library target enables the `Lifetimes` experimental feature and strict memory safety; its module interface guards every lifetime annotation, so clients build without either flag. The unsafe operations in the library are the memcpy inside `TransferWriter.append(bytes:)` and, in the string conformances, the view of a native string’s UTF-8 storage as a span for that copy, because the standard library lends that storage to inlinable code only as a pointer; no public declaration mentions an unsafe pointer. The deployment target is macOS 26 or iOS 26 because of the UTF-8 APIs the string conformances use, `UTF8Span`, `String.utf8Span` and `String.init(copying:)`, and because of `Array.span`, through which an array sizes elements of variable size; all four are new there, while `RawSpan` and `OutputRawSpan` back-deploy to earlier releases. Building the package takes Swift 6.3 or later, as its manifests state, for the `@inline(always)` attribute of SE-0496.
 
 
 ## Version 8 and earlier versions

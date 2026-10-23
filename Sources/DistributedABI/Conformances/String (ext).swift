@@ -8,7 +8,7 @@ extension String: Transferable {
         return ULEB128.size(UInt.init(count)) + count
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         // `utf8Span` and `UTF8Span.span` are getters a client cannot inline, so the native
         // storage comes through `withContiguousStorageIfAvailable`, which inlines; its
         // pointer is viewed as a span at once, and only for the copy
@@ -22,7 +22,7 @@ extension String: Transferable {
 
     // a bridged string, out of line and away from every caller
     @usableFromInline @_alwaysEmitIntoClient @inline(never) func transfer(
-        transcoding output: inout OutputRawSpan
+        transcoding output: inout TransferWriter
     ) {
         output.append(prefixed: self.utf8Span.span.bytes)
     }

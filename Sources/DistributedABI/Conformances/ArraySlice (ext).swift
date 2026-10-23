@@ -8,7 +8,7 @@ extension ArraySlice: Transferable where Element: Transferable {
         return self.span.elementsTransferSize
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.count))
         for element: Element in self {
             element.transfer(into: &output)

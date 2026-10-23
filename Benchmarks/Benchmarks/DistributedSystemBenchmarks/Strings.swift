@@ -16,8 +16,10 @@ import Foundation
     //  no check of the room left before each value, as a container makes none: the output
     //  traps if the frame is too small
     var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
-    for value: Value in values {
-        value.transfer(into: &output)
+    output.withTransferWriter {
+        for value: Value in values {
+            value.transfer(into: &$0)
+        }
     }
     return output.finalize(for: frame)
 }

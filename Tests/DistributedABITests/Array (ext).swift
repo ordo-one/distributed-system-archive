@@ -3,11 +3,11 @@ import DistributedABI
 extension [UInt8] {
     /// The bytes `body` writes into a region of `capacity` bytes. Writing more than the
     /// capacity traps on the output span’s capacity check.
-    init(capacity: Int, writing body: (inout OutputRawSpan) -> Void) {
+    init(capacity: Int, writing body: (inout TransferWriter) -> Void) {
         self = .init(unsafeUninitializedCapacity: capacity) {
             let buffer: UnsafeMutableRawBufferPointer = .init($0)
             var output: OutputRawSpan = .init(buffer: buffer, initializedCount: 0)
-            body(&output)
+            output.withTransferWriter(body)
             $1 = output.finalize(for: buffer)
         }
     }

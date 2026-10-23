@@ -35,9 +35,11 @@ extension Built {
         return .init(unsafeUninitializedCapacity: size) {
             let buffer: UnsafeMutableRawBufferPointer = .init($0)
             var output: OutputRawSpan = .init(buffer: buffer, initializedCount: 0)
-            output.append(littleEndian: UInt32.init(self.fields.count))
-            for field: UInt64 in self.fields {
-                output.append(littleEndian: field)
+            output.withTransferWriter {
+                $0.append(littleEndian: UInt32.init(self.fields.count))
+                for field: UInt64 in self.fields {
+                    $0.append(littleEndian: field)
+                }
             }
             $1 = output.finalize(for: buffer)
         }

@@ -165,7 +165,7 @@ extension TransferReader {
         return try self.takeULEB128()
     }
 
-    // emitted into the client and kept out of line, as `OutputRawSpan.append(multibyte:)` is
+    // emitted into the client and kept out of line, as `TransferWriter.append(multibyte:)` is
     @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func takeULEB128Multibyte() throws(TransferError) -> Int {
         var value: UInt = 0
         var shift: Int = 0

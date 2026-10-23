@@ -27,7 +27,7 @@ extension ContiguousTransferable {
         }
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         self.withTransferBytes {
             if  case nil = Self.fixedTransferSize {
                 output.append(prefixed: $0)

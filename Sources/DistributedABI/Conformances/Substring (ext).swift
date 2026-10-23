@@ -5,7 +5,7 @@ extension Substring: Transferable {
         return ULEB128.size(UInt.init(count)) + count
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         // the native storage through an inlinable call, as `String.transfer(into:)` takes
         // it; unlike the string’s, the substring’s method is not marked safe
         let copied: Void? = unsafe self.utf8.withContiguousStorageIfAvailable {
@@ -19,7 +19,7 @@ extension Substring: Transferable {
     // a substring of a bridged string, out of line and away from every caller, one byte at
     // a time: `utf8Span` would measure all the text before the substring on every write
     @usableFromInline @_alwaysEmitIntoClient @inline(never) func transfer(
-        transcoding output: inout OutputRawSpan
+        transcoding output: inout TransferWriter
     ) {
         output.append(uleb128: UInt.init(self.utf8.count))
         for byte: UInt8 in self.utf8 {

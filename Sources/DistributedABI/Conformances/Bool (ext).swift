@@ -3,7 +3,7 @@ extension Bool: Transferable {
     @inlinable public static var fixedTransferSize: Int? { 1 }
     @inlinable public var transferSize: Int { 1 }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(self ? 1 : 0)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

@@ -8,7 +8,7 @@ extension Result: Transferable where Success: Transferable, Failure: Transferabl
         }
     }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         switch self {
         case .success(let self):
             output.append(0)

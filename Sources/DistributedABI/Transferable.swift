@@ -21,7 +21,7 @@ public protocol Transferable: Sendable {
     var transferSize: Int { get }
 
     /// Writes exactly ``transferSize`` bytes into `output`, which has room for them.
-    func transfer(into output: inout OutputRawSpan)
+    func transfer(into output: inout TransferWriter)
 
     /// Reads one value from `input`, consuming exactly the bytes ``transfer(into:)`` wrote for
     /// it and no more: the parts that follow it in `input` belong to the values after it. The
@@ -37,7 +37,7 @@ extension Transferable
     @inlinable public static var fixedTransferSize: Int? { MemoryLayout<Self>.size }
     @inlinable public var transferSize: Int { MemoryLayout<Self>.size }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(littleEndian: self)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
@@ -50,7 +50,7 @@ extension Transferable where Self: RawRepresentable, RawValue: Transferable & Fi
     @inlinable public static var fixedTransferSize: Int? { RawValue.fixedTransferSize }
     @inlinable public var transferSize: Int { self.rawValue.transferSize }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         self.rawValue.transfer(into: &output)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

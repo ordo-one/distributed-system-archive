@@ -39,7 +39,7 @@ extension MarketIdLike: Transferable {
     static var fixedTransferSize: Int? { 9 }
     var transferSize: Int { 9 }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.value.transfer(into: &output)
         self.flags.transfer(into: &output)
     }
@@ -73,7 +73,7 @@ extension OrderTypeLike: Transferable {
         }
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         switch self {
         case .market:
             output.append(0)
@@ -143,7 +143,7 @@ extension PublicOrderLike: Transferable {
             + self.type.transferSize
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.identifier.transfer(into: &output)
         self.marketDataSource.transfer(into: &output)
         self.market.transfer(into: &output)
@@ -202,7 +202,7 @@ extension SemVerLike: Transferable {
     static var fixedTransferSize: Int? { 8 }
     var transferSize: Int { 8 }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.major.transfer(into: &output)
         self.minor.transfer(into: &output)
         self.patch.transfer(into: &output)
@@ -235,7 +235,7 @@ extension ResourceDataDescLike: Transferable {
             + self.sha256.transferSize
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.generation.transfer(into: &output)
         self.partition.transfer(into: &output)
         self.offset.transfer(into: &output)
@@ -280,7 +280,7 @@ extension ResourceLike: Transferable {
             + self.dataDescription.transferSize
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.identifier.transfer(into: &output)
         self.state.transfer(into: &output)
         self.version.transfer(into: &output)
@@ -331,7 +331,7 @@ extension PropertyValueLike: Transferable {
         }
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         switch self {
         case .integer(let self):
             output.append(0)
@@ -376,7 +376,7 @@ extension PropertyLike: Transferable {
         self.identifier.transferSize + self.value.transferSize
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.identifier.transfer(into: &output)
         self.value.transfer(into: &output)
     }
@@ -401,7 +401,7 @@ extension ComputedPropertySubscriptionLike: Transferable {
             + self.settings.transferSize
     }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         self.setIdentifier.transfer(into: &output)
         self.objects.transfer(into: &output)
         self.settings.transfer(into: &output)
@@ -534,7 +534,7 @@ enum PayloadFixtures {
     for message: Message in messages {
         precondition(message.transferSize <= frame.count, "frame too small")
         var output: OutputRawSpan = .init(buffer: frame, initializedCount: 0)
-        message.transfer(into: &output)
+        output.withTransferWriter { message.transfer(into: &$0) }
         do {
             var input: TransferReader = .init(output.bytes)
             let value: Message = try .init(transferring: &input)

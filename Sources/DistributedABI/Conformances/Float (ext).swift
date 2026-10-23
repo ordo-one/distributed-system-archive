@@ -3,7 +3,7 @@ extension Float: Transferable {
     @inlinable public static var fixedTransferSize: Int? { 4 }
     @inlinable public var transferSize: Int { 4 }
 
-    @inlinable public func transfer(into output: inout OutputRawSpan) {
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(littleEndian: self.bitPattern)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {

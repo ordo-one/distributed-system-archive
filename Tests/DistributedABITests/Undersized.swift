@@ -13,7 +13,7 @@ extension Undersized {
     static var fixedTransferSize: Int? { 2 }
     var transferSize: Int { 2 }
 
-    func transfer(into output: inout OutputRawSpan) {
+    func transfer(into output: inout TransferWriter) {
         output.append(self.byte)
         output.append(0)
     }

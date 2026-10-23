@@ -22,7 +22,7 @@ import DistributedABI
     precondition(size <= frame.count, "frame too small")
     let buffer: UnsafeMutableRawBufferPointer = .init(rebasing: frame[..<size])
     var output: OutputRawSpan = .init(buffer: buffer, initializedCount: 0)
-    value.transfer(into: &output)
+    output.withTransferWriter { value.transfer(into: &$0) }
     return output.finalize(for: buffer)
 }
 
