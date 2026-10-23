@@ -20,8 +20,64 @@ import Foundation
     return output.finalize(for: frame)
 }
 
+/// The size pass alone.
+@inline(never) func size<Value>(_ value: Value) -> Int where Value: Transferable {
+    value.transferSize
+}
+
+/// The read pass alone, from a frame the write pass filled.
+@inline(never) func read<Value>(
+    _: Value.Type,
+    from frame: UnsafeMutableRawBufferPointer,
+    count: Int
+) throws(TransferError) -> Value where Value: Transferable {
+    var input: TransferReader = .init(
+        unsafe UnsafeRawBufferPointer.init(rebasing: frame[..<count]).bytes
+    )
+    let value: Value = try .init(transferring: &input)
+    try input.finish()
+    return value
+}
+
 func registerStringBenchmarks() {
     let config: Benchmark.Configuration = .init(metrics: .default, timeUnits: .microseconds)
+
+    //  The batch of 10,001 short strings as one array, as `RoundtripStringBatch` sends it, one
+    //  phase at a time: the size pass, the write pass into a frame sized for it, and the read
+    //  pass from that frame.
+    let batch: [String] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
+    Benchmark.init("SizeStringBatch", configuration: config) { benchmark in
+        for _ in benchmark.scaledIterations {
+            blackHole(size(batch))
+        }
+    }
+    Benchmark.init("WriteStringBatch", configuration: config) { benchmark in
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: batch.transferSize,
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
+        benchmark.startMeasurement()
+        for _ in benchmark.scaledIterations {
+            blackHole(send(batch, into: frame))
+        }
+    }
+    Benchmark.init("ReadStringBatch", configuration: config) { benchmark in
+        let frame: UnsafeMutableRawBufferPointer = .allocate(
+            byteCount: batch.transferSize,
+            alignment: 16
+        )
+        defer {
+            frame.deallocate()
+        }
+        let count: Int = send(batch, into: frame)
+        benchmark.startMeasurement()
+        for _ in benchmark.scaledIterations {
+            blackHole(try read([String].self, from: frame, count: count))
+        }
+    }
 
     func register<Value>(_ name: String, _ values: [Value]) where Value: Transferable {
         let capacity: Int = values.reduce(0) { $0 + $1.transferSize }
