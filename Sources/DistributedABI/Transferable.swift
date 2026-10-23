@@ -3,9 +3,10 @@
 /// A conformer states the exact size of its wire form, writes exactly that many bytes into
 /// memory the destination owns, and reads itself back from bytes it borrows. Every value
 /// delimits itself on the wire: a leaf of variable size (a string, a serialized message)
-/// writes its ULEB128 length before its bytes, a collection its count, an optional its
-/// discriminant, so a container or a composite writes its parts one after another and reads
-/// them back in the same order, with no length of its own around any of them.
+/// writes its ULEB128 length before its bytes, a collection its count (an inline array, whose
+/// count is its type’s, writes none), an optional its discriminant, so a container or a
+/// composite writes its parts one after another and reads them back in the same order, with
+/// no length of its own around any of them.
 ///
 /// A value whose memory already is its wire form should conform to ``ContiguousTransferable``
 /// instead, which supplies all three requirements from the bytes it lends.

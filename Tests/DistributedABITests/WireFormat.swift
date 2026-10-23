@@ -157,8 +157,8 @@ import Testing
     }
 
     /// An inline array writes its elements with no count, or one zero byte when it has none,
-    /// and states a fixed size whenever its elements do, so that a composite holding one keeps
-    /// a fixed size of its own.
+    /// and states a fixed size (1 when it is empty, else its count times its element’s fixed size
+    /// when that fits in `Int`), so that a composite holding one keeps a fixed size of its own.
     @Test(
         arguments: [
             // fixed-size elements, packed
