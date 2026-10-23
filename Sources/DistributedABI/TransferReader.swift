@@ -37,18 +37,21 @@ extension TransferReader {
         return span
     }
 
-    /// A ULEB128 length, then that many bytes. Always inlined, and a length of one or two
-    /// bytes is read inline as well, which is the length of a serialized message of up to
-    /// 16,383 bytes: left to the optimizer, a client calls this through the framework’s stub,
-    /// and a conformance whose read calls it is then reached through the protocol’s dispatch
-    /// thunk rather than inlined.
+    /// A ULEB128 length, then that many bytes. Always inlined, with a length of one or two
+    /// bytes read inline, as the length of a serialized message of up to 16,383 bytes is, and
+    /// the bytes taken inline rather than through ``take(_:)``, which a client calls out of
+    /// line. Left to the optimizer, a client calls this through the framework’s stub, and a
+    /// conformance whose read calls it is then reached through the protocol’s dispatch thunk
+    /// rather than inlined.
     @_lifetime(copy self)
     @inlinable @inline(always) public mutating func takePrefixed() throws(TransferError) -> RawSpan {
         let length: Int = try self.takeULEB128Short()
         guard length <= self.remaining else {
             throw .init(.count(length, remaining: self.remaining))
         }
-        return try self.take(length)
+        let span: RawSpan = self.bytes.extracting(self.index ..< self.index + length)
+        self.index += length
+        return span
     }
 
     /// The bytes of a string: a ULEB128 length, then that many bytes, with only a length of
