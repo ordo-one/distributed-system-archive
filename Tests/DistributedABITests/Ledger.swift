@@ -31,8 +31,8 @@ extension Ledger: Transferable where Key: Transferable, Value: Transferable {
     func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.keys.count))
         for (key, value): (Key, Value) in zip(self.keys, self.values) {
-            key.transfer(into: &output)
-            value.transfer(into: &output)
+            output.append(element: key)
+            output.append(element: value)
         }
     }
     init(transferring input: inout TransferReader) throws(TransferError) {

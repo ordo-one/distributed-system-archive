@@ -42,7 +42,7 @@ extension Batch: Transferable where Element: Transferable {
     func transfer(into output: inout TransferWriter) {
         output.append(uleb128: UInt.init(self.elements.count))
         for element: Element in self.elements {
-            element.transfer(into: &output)
+            output.append(element: element)
         }
     }
     init(transferring input: inout TransferReader) throws(TransferError) {

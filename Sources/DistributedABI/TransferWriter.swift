@@ -76,10 +76,13 @@ extension TransferWriter {
         self.output.append(value.littleEndian, as: Integer.self)
     }
 
-    /// Writes `value` as the part of a collection. A debug build checks that it wrote at least
-    /// one byte, as every value must, here, where the type that broke the rule is still known;
-    /// a release build compiles the check away.
-    @inlinable @inline(always) mutating func append<Element>(
+    /// Writes `value` as one element of a collection, through its
+    /// ``Transferable/transfer(into:)``. A debug build of the caller checks that it wrote at
+    /// least one byte, as every value must, here, where the type that broke the rule is still
+    /// known; a release build compiles the check away. A collection of one’s own writes each
+    /// of its elements, or each key and each value of an entry, through this rather than
+    /// through the element’s own `transfer(into:)`.
+    @inlinable @inline(always) public mutating func append<Element>(
         element value: Element
     ) where Element: Transferable {
         let start: Int = self.output.byteCount
