@@ -23,8 +23,10 @@ import DistributedABI
 //      `Result` do;
 //    * Collection = ULEB128 count then each element one after another.
 //
-//  In production these shapes are SBE rows, which lend their bytes unchanged; the replicas
-//  measure what a composite that does serialize costs.
+//  Every row here is `Composite`. Nothing in ordo or the plugins conforms a composite by hand
+//  today: in production these shapes travel as SBE messages, which lend their bytes unchanged.
+//  A hand-written composite is the form a binary path from plugin to plugin would take, and the
+//  replicas measure what one that serializes field by field costs.
 
 // MARK: - 1. PublicOrderLike — hot-path book update
 
@@ -572,18 +574,22 @@ func registerPayloadBenchmarks() {
 
     // -- PublicOrderLike sparse (the true hot path) --
     register(
-        "PublicOrder sparse",
+        "Composite PublicOrder sparse",
         (0 ..< messageCount).map(PayloadFixtures.publicOrderSparse),
         frame: 256
     )
     // -- PublicOrderLike full (every optional populated, two 16-char strings) --
     register(
-        "PublicOrder full",
+        "Composite PublicOrder full",
         (0 ..< messageCount).map(PayloadFixtures.publicOrderFull),
         frame: 256
     )
     // -- ResourceLike (strings + optionals + nested) --
-    register("Resource", (0 ..< messageCount).map(PayloadFixtures.resource), frame: 512)
+    register(
+        "Composite Resource",
+        (0 ..< messageCount).map(PayloadFixtures.resource),
+        frame: 512
+    )
 
     // -- ComputedPropertySubscriptionLike across object counts (Big-O slope) --
     //  Each settings value on its own as well, so that a value which reads other than it writes
@@ -596,7 +602,7 @@ func registerPayloadBenchmarks() {
     for objectCount: Int in [10, 100, 1_000, 10_000] {
         let messages: Int = objectCount >= 1_000 ? 50 : 200
         register(
-            "CPSub objects=\(objectCount)",
+            "Composite CPSub objects=\(objectCount)",
             (0 ..< messages).map { PayloadFixtures.cpSub(objectCount: objectCount, $0) },
             frame: objectCount * 9 + 256
         )

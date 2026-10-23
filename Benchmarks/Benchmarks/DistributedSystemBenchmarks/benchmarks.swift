@@ -1,6 +1,13 @@
 import Benchmark
 import DistributedABI
 
+//  Each row is named by the production role of the values it measures, so the raw output reads
+//  on its own: `Standard` for the standard types ordo sends (integers, strings, collections of
+//  them, and the dictionary of the cache synchronization endpoint), `SBE` for values that lend
+//  bytes they already hold, as an SBE message does, `Built on lend` for values that build their
+//  bytes on every lend, as a value that travels as its JSON does, and `Composite` for the
+//  hand-written composites of Payloads.swift. The round trips here are all `Standard`.
+
 // Not main-actor isolated: the harness calls it from its nonisolated `registerBenchmarks()`,
 // which Swift 6.4 refuses for a main-actor `let`.
 let benchmarks: @Sendable () -> () = {
@@ -10,7 +17,7 @@ let benchmarks: @Sendable () -> () = {
         .throughput: .count,
     ]
     Benchmark.init(
-        "RoundtripInt",
+        "Standard RoundtripInt",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let ints: [Int] = [_].init(0 ... 10000)
@@ -29,7 +36,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripInt?",
+        "Standard RoundtripInt?",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let ints: [Int?] = (0 ... 10000).map { $0 }
@@ -48,7 +55,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripString",
+        "Standard RoundtripString",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let strings: [String] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
@@ -67,7 +74,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripString?",
+        "Standard RoundtripString?",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let strings: [String?] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
@@ -86,7 +93,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripIntBatch",
+        "Standard RoundtripIntBatch",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let ints: [Int] = [_].init(0 ... 10000)
@@ -98,7 +105,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripStringBatch",
+        "Standard RoundtripStringBatch",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         let strings: [String] = (0 ... 10000).map { String.init($0 * 131989, radix: 16) }
@@ -110,7 +117,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
     Benchmark.init(
-        "RoundtripDictionary?",
+        "Standard RoundtripDictionary?",
         configuration: .init(metrics: .default, timeUnits: .microseconds)
     ) {
         /// representative of CacheSynchronizationClientEndpoint
@@ -131,7 +138,7 @@ let benchmarks: @Sendable () -> () = {
         }
     }
 
-    // The write and the read of `RoundtripDictionary?` apart (see Dictionaries.swift).
+    // The write and the read of `Standard RoundtripDictionary?` apart (see Dictionaries.swift).
     registerDictionaryBenchmarks()
     // Production-representative payload benchmarks (see Payloads.swift).
     registerPayloadBenchmarks()
