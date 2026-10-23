@@ -11,6 +11,7 @@ struct Built {
         self.fields = fields
     }
 }
+extension Built: Equatable {}
 extension Built: ContiguousTransferable {
     func withTransferBytes<Result>(_ body: (RawSpan) throws -> Result) rethrows -> Result {
         let bytes: [UInt8] = self.build()
