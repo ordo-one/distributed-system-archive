@@ -49,8 +49,9 @@ extension TransferReader {
         guard length <= self.remaining else {
             throw .init(.count(length, remaining: self.remaining))
         }
-        let span: RawSpan = self.bytes.extracting(self.index ..< self.index + length)
-        self.index += length
+        // cannot overflow, since `length` fits in the bytes remaining
+        let span: RawSpan = self.bytes.extracting(self.index ..< self.index &+ length)
+        self.index &+= length
         return span
     }
 
@@ -147,16 +148,17 @@ extension TransferReader {
     /// A ULEB128 number as ``takeULEB128()`` reads it, with a number below 16,384, which takes
     /// two bytes, read inline as well.
     @inlinable @inline(always) mutating func takeULEB128Short() throws(TransferError) -> Int {
-        if  self.index + 1 < self.bytes.byteCount {
+        // cannot overflow, since the index is at most the byte count
+        if  self.index &+ 1 < self.bytes.byteCount {
             let low: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
             if  low < 0x80 {
-                self.index += 1
+                self.index &+= 1
                 return Int.init(low)
             }
-            let high: UInt8 = self.bytes.load(fromByteOffset: self.index + 1, as: UInt8.self)
+            let high: UInt8 = self.bytes.load(fromByteOffset: self.index &+ 1, as: UInt8.self)
             // a final zero byte is redundant, and the out-of-line read refuses it
             if  high < 0x80, high != 0 {
-                self.index += 2
+                self.index &+= 2
                 return Int.init(low & 0x7f) | Int.init(high) &<< 7
             }
         }
