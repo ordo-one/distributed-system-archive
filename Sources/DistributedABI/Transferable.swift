@@ -22,12 +22,21 @@ public protocol Transferable: Sendable {
     /// an array of them can travel as one copy of its elements’ storage.
     ///
     /// A type that states this has a ``fixedTransferSize`` that is the size and the stride of
-    /// its memory, holds no reference, and reads back as the value whose stored bytes are any
-    /// bytes of that size: every bit pattern is a valid value. An array, a contiguous array, a
-    /// slice or an inline array of such elements then writes their storage after the count
-    /// with one copy, and reads it back with one copy, with the bytes on the wire unchanged.
-    /// The collection checks the size, the stride and the absence of references itself, and
-    /// writes and reads each element through its own conformance when any of them fails.
+    /// its memory, holds no reference or pointer of any kind, and reads back as the value whose
+    /// stored bytes are any bytes of that size: every bit pattern is a valid value. An array, a
+    /// contiguous array, a slice or an inline array of such elements then writes their storage
+    /// after the count with one copy, and reads it back with one copy, with the bytes on the
+    /// wire unchanged. The collection checks the size and the stride itself, and that the type
+    /// holds no strong, weak or unowned reference, and writes and reads each element through
+    /// its own conformance when any of them fails. It cannot see an `unowned(unsafe)`
+    /// reference, an `Unmanaged` one or a raw pointer, which its memory holds as plain bits:
+    /// a type that states this must hold none of them, which is the conformer’s guarantee.
+    ///
+    /// This is a requirement rather than a marker protocol because the generic conformances of
+    /// the collections make the choice: through the witness table, a requirement is one call
+    /// and folds away when specialized, where asking for a protocol is a dynamic cast per
+    /// collection; and a derive macro states it by computing it from its fields’ own statements
+    /// and their `MemoryLayout`, which a conformance to a protocol cannot depend on.
     ///
     /// The fixed-width integers state it on a little-endian host, as do `Float` and `Double`,
     /// whose wire form is their bit pattern. A type that wraps one of them as its only stored
@@ -64,13 +73,13 @@ public protocol Transferable: Sendable {
     /// A statement written by hand must guarantee the same: a type stored in one byte, each
     /// value stored as the byte it travels as, and every byte below the count a value. The
     /// collection checks the size, the stride and the fixed size of one byte itself, and
-    /// reads each element through its own conformance when any of them fails; it refuses a
-    /// byte at or above the count with the ``TransferError/Kind/discriminant(_:)`` error a
-    /// read of one value at a time reports, for the first such byte. It cannot check the rest,
-    /// and nothing reports a wrong statement: a byte out of range is refused only from the
-    /// stated count up, so a count above the number of cases accepts a byte of no case as a
-    /// value of the type, and a count or raw values that do not match the cases read a byte
-    /// as the wrong case, silently.
+    /// reads each element through its own conformance when any of them fails; it refuses the
+    /// first byte at or above the count with the ``TransferError/Kind/discriminant(_:)`` error
+    /// a read of one value at a time reports, and leaves the reader just past it, where that
+    /// read leaves it. It cannot check the rest, and nothing reports a wrong statement: a byte
+    /// out of range is refused only from the stated count up, so a count above the number of
+    /// cases accepts a byte of no case as a value of the type, and a count or raw values that
+    /// do not match the cases read a byte as the wrong case, silently.
     static var bitwiseDiscriminantCount: Int? { get }
 
     /// The exact number of bytes ``transfer(into:)`` writes, at least one.
@@ -96,9 +105,11 @@ extension Transferable {
 }
 extension Transferable {
     /// The fixed size of a value of this type when an array of them can travel as one copy of
-    /// its storage: the type states ``isBitwiseTransferable``, and its fixed size is the size
-    /// and the stride of its memory, which holds no reference. Nil otherwise, and then each
-    /// element travels through its own conformance. Specialized for a type, this folds to a
+    /// its storage: the type states ``isBitwiseTransferable``, its fixed size is the size and
+    /// the stride of its memory, and that memory is trivial to copy and destroy, which excludes
+    /// strong, weak and unowned references; an `unowned(unsafe)` reference, an `Unmanaged` one
+    /// or a raw pointer passes, and the statement promises there is none. Nil otherwise, and
+    /// then each element travels through its own conformance. Specialized for a type, this folds to a
     /// constant; through the witness table, it asks the type once per collection.
     @inlinable static var bitwiseTransferStride: Int? {
         guard Self.isBitwiseTransferable,

@@ -149,7 +149,7 @@ extension TransferReader {
     ///
     /// When the element type states ``Transferable/isBitwiseTransferable`` or
     /// ``Transferable/bitwiseDiscriminantCount``, its fixed size is the size and the stride of
-    /// its memory, which holds no reference, and the bytes remaining
+    /// its memory, which holds no strong, weak or unowned reference, and the bytes remaining
     /// hold all `count` elements, their bytes are copied into `output` at once, each byte of a
     /// type that states a number of discriminants checked where it lies first; otherwise each
     /// element reads itself. Either way, the bytes are refused exactly where a read of one

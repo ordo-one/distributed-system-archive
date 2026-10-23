@@ -98,11 +98,11 @@ extension TransferWriter {
     ///
     /// When the element type states ``Transferable/isBitwiseTransferable`` or
     /// ``Transferable/bitwiseDiscriminantCount``, and its fixed size is the size and the stride
-    /// of its memory, which holds no reference, the elements’ storage is written with one copy
-    /// instead, which is the same bytes; otherwise each element writes itself. A collection of
-    /// one’s own whose elements lie in contiguous storage writes its count with
-    /// ``append(uleb128:)`` and then its elements through this, from a span of that storage,
-    /// and reads them back with ``TransferReader/takeElements(_:into:)``.
+    /// of its memory, which holds no strong, weak or unowned reference, the elements’ storage
+    /// is written with one copy instead, which is the same bytes; otherwise each element writes
+    /// itself. A collection of one’s own whose elements lie in contiguous storage writes its
+    /// count with ``append(uleb128:)`` and then its elements through this, from a span of that
+    /// storage, and reads them back with ``TransferReader/takeElements(_:into:)``.
     @inlinable public mutating func append<Element>(elements: Span<Element>) where Element: Transferable {
         if  elements.count != 0, case _? = Element.bitwiseTransfer {
             self.append(bitwise: elements)
@@ -114,8 +114,9 @@ extension TransferWriter {
     }
 
     /// Appends the storage of `elements` with one copy. The caller has found
-    /// ``Transferable/bitwiseTransfer`` for the element type: the elements hold no reference
-    /// and no padding, and their storage is their transfer bytes, one after another.
+    /// ``Transferable/bitwiseTransfer`` for the element type: the elements hold no strong, weak
+    /// or unowned reference and no padding, and their storage is their transfer bytes, one
+    /// after another.
     @inlinable mutating func append<Element>(bitwise elements: Span<Element>) where Element: Transferable {
         self.append(bytes: unsafe elements.bytes)
     }
