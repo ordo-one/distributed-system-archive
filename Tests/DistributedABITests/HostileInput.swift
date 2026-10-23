@@ -73,6 +73,10 @@ import Testing
             Hostile.init("truncated count", [0x80], as: [UInt8].self, .expected(1, encountered: 0)),
             Hostile.init("missing count", [], as: [String: Int].self, .expected(1, encountered: 0)),
             Hostile.init("truncated length", [1, 0x80], as: [String].self, .expected(1, encountered: 0)),
+            // the length of a contiguous value, whose two-byte form is read inline
+            Hostile.init("overlong zero length", [0x80, 0x00], as: Row.self, .malformed(remaining: 0)),
+            Hostile.init("two-byte length past end", [0x80, 0x01, 9], as: Row.self, .count(128, remaining: 1)),
+            Hostile.init("truncated two-byte length", [0x80], as: Row.self, .expected(1, encountered: 0)),
             // bytes left over after the last element
             Hostile.init("bytes left over after elements", [1, 1, 7, 0xaa], as: [UInt8?].self, .expected(0, encountered: 1)),
             // an element of fixed size that reads fewer bytes than its type states

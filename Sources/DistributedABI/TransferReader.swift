@@ -37,12 +37,27 @@ extension TransferReader {
         return span
     }
 
-    /// A ULEB128 length, then that many bytes. Always inlined: left to the optimizer, a
-    /// client calls this through the framework’s stub, and a conformance whose read calls it
-    /// is then reached through the protocol’s dispatch thunk rather than inlined, which was
-    /// measured at a third more instructions per string read from a collection.
+    /// A ULEB128 length, then that many bytes. Always inlined, and a length of one or two
+    /// bytes is read inline as well, which is the length of a serialized message of up to
+    /// 16,383 bytes: left to the optimizer, a client calls this through the framework’s stub,
+    /// and a conformance whose read calls it is then reached through the protocol’s dispatch
+    /// thunk rather than inlined.
     @_lifetime(copy self)
     @inlinable @inline(always) public mutating func takePrefixed() throws(TransferError) -> RawSpan {
+        let length: Int = try self.takeULEB128Short()
+        guard length <= self.remaining else {
+            throw .init(.count(length, remaining: self.remaining))
+        }
+        return try self.take(length)
+    }
+
+    /// The bytes of a string: a ULEB128 length, then that many bytes, with only a length of
+    /// one byte read inline, as the length of a short string is. Always inlined, as
+    /// ``takePrefixed()`` is, but smaller, so that a client still inlines the whole string
+    /// read into a collection’s element loop; with the two-byte read of ``takePrefixed()``, a
+    /// string batch read a fifth more instructions.
+    @_lifetime(copy self)
+    @inlinable @inline(always) mutating func takeUTF8() throws(TransferError) -> RawSpan {
         let length: Int = try self.takeULEB128()
         guard length <= self.remaining else {
             throw .init(.count(length, remaining: self.remaining))
@@ -114,6 +129,25 @@ extension TransferReader {
             }
         }
         return try self.takeULEB128Multibyte()
+    }
+
+    /// A ULEB128 number as ``takeULEB128()`` reads it, with a number below 16,384, which takes
+    /// two bytes, read inline as well.
+    @inlinable @inline(always) mutating func takeULEB128Short() throws(TransferError) -> Int {
+        if  self.index + 1 < self.bytes.byteCount {
+            let low: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
+            if  low < 0x80 {
+                self.index += 1
+                return Int.init(low)
+            }
+            let high: UInt8 = self.bytes.load(fromByteOffset: self.index + 1, as: UInt8.self)
+            // a final zero byte is redundant, and the out-of-line read refuses it
+            if  high < 0x80, high != 0 {
+                self.index += 2
+                return Int.init(low & 0x7f) | Int.init(high) &<< 7
+            }
+        }
+        return try self.takeULEB128()
     }
 
     // emitted into the client and kept out of line, as `OutputRawSpan.append(multibyte:)` is

@@ -56,6 +56,12 @@ import Testing
             (Venue.primary, [0x02, 0x01]),
             // a contiguous value lends its bytes unchanged, behind its length when its size varies
             (Row.init(bytes: [3, 1, 4]), [3, 3, 1, 4]),
+            // a length of two bytes, as a serialized message of 128 to 16,383 bytes has
+            (Row.init(bytes: .init(repeating: 9, count: 128)), [0x80, 0x01] + .init(repeating: 9, count: 128)),
+            (
+                Row.init(bytes: .init(repeating: 9, count: 16_384)),
+                [0x80, 0x80, 0x01] + .init(repeating: 9, count: 16_384)
+            ),
             (Identifier.init(0x0102), [2, 1, 0, 0, 0, 0, 0, 0]),
             // packed when the contiguous type states a fixed size, each behind its own length
             // when it does not
