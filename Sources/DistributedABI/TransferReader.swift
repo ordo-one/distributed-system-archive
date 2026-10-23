@@ -36,9 +36,12 @@ extension TransferReader {
         return span
     }
 
-    /// A ULEB128 length, then that many bytes.
+    /// A ULEB128 length, then that many bytes. Always inlined: left to the optimizer, a
+    /// client calls this through the framework’s stub, and a conformance whose read calls it
+    /// is then reached through the protocol’s dispatch thunk rather than inlined, which was
+    /// measured at a third more instructions per string read from a collection.
     @_lifetime(copy self)
-    @inlinable public mutating func takePrefixed() throws(TransferError) -> RawSpan {
+    @inlinable @inline(always) public mutating func takePrefixed() throws(TransferError) -> RawSpan {
         let length: Int = try self.takeULEB128()
         guard length <= self.remaining else {
             throw .init(.count(length, remaining: self.remaining))
@@ -48,8 +51,8 @@ extension TransferReader {
 
     /// A ULEB128 count of elements, refused when it exceeds the bytes remaining: every element
     /// takes at least one byte, so a hostile count never reserves room for more elements than
-    /// the bytes present could hold.
-    @inlinable public mutating func takeCount() throws(TransferError) -> Int {
+    /// the bytes present could hold. Always inlined, as ``takePrefixed()`` is.
+    @inlinable @inline(always) public mutating func takeCount() throws(TransferError) -> Int {
         let count: Int = try self.takeULEB128()
         guard count <= self.remaining else {
             throw .init(.count(count, remaining: self.remaining))
