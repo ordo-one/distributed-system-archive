@@ -8,8 +8,9 @@ extension ULEB128 {
         return (UInt.bitWidth - value.leadingZeroBitCount + 6) / 7
     }
 
-    /// The number of bytes a count or a length takes, which is never negative.
-    @inlinable public static func size(_ value: Int) -> Int {
+    /// The number of bytes a count or a length takes, which is never negative. Transparent, as the
+    /// writer’s `append(uleb128:)` of an `Int` is, so that it adds nothing to its caller.
+    @_transparent public static func size(_ value: Int) -> Int {
         Self.size(UInt.init(value))
     }
 }

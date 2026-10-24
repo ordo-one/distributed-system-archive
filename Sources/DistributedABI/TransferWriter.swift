@@ -53,7 +53,12 @@ extension TransferWriter {
     }
 
     /// Appends a count or a length, which is never negative, as a ULEB128 number.
-    @inlinable @inline(always) public mutating func append(uleb128 value: Int) {
+    ///
+    /// Transparent, so that it is the conversion at the call site and nothing more: as an
+    /// always-inlined function of its own, the one layer it added left `String`’s write too
+    /// large for a client to inline into an array’s element loop, and an array of strings
+    /// wrote with three tenths more instructions.
+    @_transparent public mutating func append(uleb128 value: Int) {
         self.append(uleb128: UInt.init(value))
     }
 
