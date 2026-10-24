@@ -36,7 +36,7 @@ struct MarketIdLike: Equatable {
     var flags: UInt8
 }
 extension MarketIdLike: Transferable {
-    static var fixedTransferSize: Int? { 9 }
+    static var transferLayout: TransferLayout? { .fixed(size: 9) }
     var transferSize: Int { 9 }
 
     func transfer(into output: inout TransferWriter) {
@@ -199,7 +199,7 @@ struct SemVerLike: Equatable {
     var preRelease: UInt16
 }
 extension SemVerLike: Transferable {
-    static var fixedTransferSize: Int? { 8 }
+    static var transferLayout: TransferLayout? { .fixed(size: 8) }
     var transferSize: Int { 8 }
 
     func transfer(into output: inout TransferWriter) {

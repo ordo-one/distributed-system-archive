@@ -9,7 +9,7 @@ struct Ticket: Equatable, RawRepresentable, Transferable {
         self.rawValue = rawValue
     }
 
-    static var isBitwiseTransferable: Bool { RawValue.isBitwiseTransferable }
+    static var transferLayout: TransferLayout? { RawValue.transferLayout }
 }
 
 /// The same wrapper with no statement, so that an array of them travels one element at a time:

@@ -7,7 +7,7 @@ enum Mark: UInt8, CaseIterable, Equatable, Transferable {
     case near
     case at
 
-    static var bitwiseDiscriminantCount: Int? { 3 }
+    static var transferLayout: TransferLayout? { .discriminant(count: 3) }
 }
 
 /// The same enumeration with no statement, read one element at a time: the reference the
@@ -18,16 +18,31 @@ enum UnstatedMark: UInt8, CaseIterable, Equatable, Transferable {
     case at
 }
 
-/// A wrapper of eight bytes that states a case count, which only a one-byte type can bear out:
-/// an array of them travels one element at a time.
-struct WideMark: Equatable, RawRepresentable, Transferable {
-    let rawValue: UInt64
+/// A value of one byte on the wire that states a discriminant layout but takes two bytes of
+/// memory, which only a one-byte type can bear out: an array of them travels one element at a
+/// time.
+struct WideMark: Equatable, Transferable {
+    let value: UInt8
+    let spare: UInt8
 
-    init(rawValue: UInt64) {
-        self.rawValue = rawValue
+    init(_ value: UInt8) {
+        self.value = value
+        self.spare = 0
     }
 
-    static var bitwiseDiscriminantCount: Int? { 2 }
+    static var transferLayout: TransferLayout? { .discriminant(count: 2) }
+    var transferSize: Int { 1 }
+
+    func transfer(into output: inout TransferWriter) {
+        output.append(self.value)
+    }
+    init(transferring input: inout TransferReader) throws(TransferError) {
+        let byte: UInt8 = try input.take(UInt8.self)
+        guard byte < 2 else {
+            throw .init(.discriminant(.init(byte)))
+        }
+        self.init(byte)
+    }
 }
 
 /// `Bool`’s wire form under a type that states no number of discriminants, read one element at
@@ -35,7 +50,7 @@ struct WideMark: Equatable, RawRepresentable, Transferable {
 struct UnstatedFlag: Equatable, Transferable {
     let value: Bool
 
-    static var fixedTransferSize: Int? { 1 }
+    static var transferLayout: TransferLayout? { .fixed(size: 1) }
     var transferSize: Int { 1 }
 
     func transfer(into output: inout TransferWriter) {

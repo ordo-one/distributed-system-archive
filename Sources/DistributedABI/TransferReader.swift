@@ -120,7 +120,7 @@ extension TransferReader {
     /// ``Transferable/init(transferring:)``, whose errors propagate unchanged.
     ///
     /// A debug build of the caller checks that a value whose type states a
-    /// ``Transferable/fixedTransferSize`` consumed exactly that many bytes, as the writer
+    /// ``Transferable/transferLayout`` consumed exactly its size, as the writer
     /// checks that every element wrote at least one: a faulty conformer that read fewer or more
     /// would otherwise shift every element after it. The check is of the conformer, not of the
     /// bytes, since a value whose bytes run out has already thrown; a release build compiles it
@@ -134,10 +134,10 @@ extension TransferReader {
         let start: Int = self.index
         let value: Element = try .init(transferring: &self)
         assert(
-            Element.fixedTransferSize.map { $0 == self.index &- start } ?? true,
+            Element.transferLayout.map { $0.size == self.index &- start } ?? true,
             """
-            \(Element.self) read \(self.index &- start) bytes, but states a fixed size of \
-            \(Element.fixedTransferSize ?? 0)
+            \(Element.self) read \(self.index &- start) bytes, but its layout states \
+            \(Element.transferLayout?.size ?? 0)
             """
         )
         return value
@@ -146,12 +146,11 @@ extension TransferReader {
     /// Reads `count` elements into `output`, each as ``takeElement(_:)`` reads it: the
     /// elements of an array’s wire form, with no count in front of them.
     ///
-    /// When the element type states ``Transferable/isBitwiseTransferable`` or
-    /// ``Transferable/bitwiseDiscriminantCount``, its fixed size is the size and the stride of
-    /// its memory, which holds no strong, weak or unowned reference, and the bytes remaining
-    /// hold all `count` elements, their bytes are copied into `output` at once, each byte of a
-    /// type that states a number of discriminants checked where it lies first; otherwise each
-    /// element reads itself. Either way, the bytes are refused exactly where a read of one
+    /// When the element type’s layout is ``TransferLayout/bitwise(size:)`` or
+    /// ``TransferLayout/discriminant(count:)``, its size is the size and the stride of its
+    /// memory, which holds no strong, weak or unowned reference, and the bytes remaining hold
+    /// all `count` elements, their bytes are copied into `output` at once, each byte of a
+    /// discriminant checked where it lies first; otherwise each element reads itself. Either way, the bytes are refused exactly where a read of one
     /// element at a time refuses them, with the same error and the reader at the same
     /// position. `output` must have room for `count` more elements. When this throws, `output`
     /// may hold some of the elements read before the error.
@@ -257,8 +256,8 @@ extension TransferReader {
 extension TransferReader {
     /// A ULEB128 count of elements of one type, as an array writes it, refused with
     /// ``TransferError/Kind/count(_:remaining:)`` when that many elements cannot fit in the
-    /// bytes remaining: one byte each at least, and their fixed size each when their type
-    /// states one. A collection of one’s own reads its count through this before it reserves
+    /// bytes remaining: one byte each at least, and their size each when their type states a
+    /// layout. A collection of one’s own reads its count through this before it reserves
     /// room for its elements, so that a hostile count never reserves room for more elements
     /// than the bytes present could hold, and then reads each element through
     /// ``takeElement(_:)``.
@@ -266,7 +265,7 @@ extension TransferReader {
         of _: Element.Type
     ) throws(TransferError) -> Int where Element: Transferable {
         let count: Int = try self.takeCount()
-        if  let size: Int = Element.fixedTransferSize, size > 0, count > self.remaining / size {
+        if  let size: Int = Element.transferLayout?.size, size > 0, count > self.remaining / size {
             throw .init(.count(count, remaining: self.remaining))
         }
         return count
@@ -274,8 +273,8 @@ extension TransferReader {
 
     /// A ULEB128 count of entries, as a dictionary writes it, refused with
     /// ``TransferError/Kind/count(_:remaining:)`` when that many entries cannot fit in the
-    /// bytes remaining: a key and a value each take one byte at least, and their fixed size
-    /// each when their type states one. An entry whose size overflows `Int` cannot fit either,
+    /// bytes remaining: a key and a value each take one byte at least, and their size each
+    /// when their type states a layout. An entry whose size overflows `Int` cannot fit either,
     /// and a count of zero is never refused, since it has no entry to fit. A keyed collection
     /// of one’s own reads its count through this before it reserves room for its entries, and
     /// then reads each key and its value through ``takeElement(_:)``.
@@ -287,8 +286,8 @@ extension TransferReader {
         if  count == 0 {
             return 0
         }
-        let size: (partialValue: Int, overflow: Bool) = (Key.fixedTransferSize ?? 1)
-            .addingReportingOverflow(Value.fixedTransferSize ?? 1)
+        let size: (partialValue: Int, overflow: Bool) = (Key.transferLayout?.size ?? 1)
+            .addingReportingOverflow(Value.transferLayout?.size ?? 1)
         if  size.overflow || size.partialValue > 1 && count > self.remaining / size.partialValue {
             throw .init(.count(count, remaining: self.remaining))
         }

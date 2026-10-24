@@ -20,7 +20,7 @@ extension WireFormat {
             _ golden: [UInt8]
         ) where Value: Transferable {
             self.name = "\(Value.self)"
-            self.stated = Value.fixedTransferSize
+            self.stated = Value.transferLayout?.size
             self.expected = expected
             self.golden = golden
             self.size = value.transferSize

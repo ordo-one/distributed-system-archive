@@ -6,20 +6,22 @@ struct Pair: Equatable, Transferable {
     let low: UInt32
     let high: UInt32
 
-    static var fixedTransferSize: Int? {
+    static var transferLayout: TransferLayout? {
         guard
-        let low: Int = UInt32.fixedTransferSize,
-        let high: Int = UInt32.fixedTransferSize else {
+        let low: TransferLayout = UInt32.transferLayout,
+        let high: TransferLayout = UInt32.transferLayout else {
             return nil
         }
-        return low + high
-    }
-    static var isBitwiseTransferable: Bool {
-        UInt32.isBitwiseTransferable
-            && UInt32.isBitwiseTransferable
-            && MemoryLayout<Self>.offset(of: \Self.low) == 0
-            && MemoryLayout<Self>.offset(of: \Self.high) == MemoryLayout<UInt32>.size
-            && MemoryLayout<Self>.size == MemoryLayout<UInt32>.size + MemoryLayout<UInt32>.size
+        let size: Int = low.size + high.size
+        guard
+        case .bitwise = low,
+        case .bitwise = high,
+        MemoryLayout<Self>.offset(of: \Self.low) == 0,
+        MemoryLayout<Self>.offset(of: \Self.high) == low.size,
+        MemoryLayout<Self>.size == size else {
+            return .fixed(size: size)
+        }
+        return .bitwise(size: size)
     }
     var transferSize: Int { self.low.transferSize + self.high.transferSize }
 
@@ -42,7 +44,7 @@ struct UnstatedPair: Equatable, Transferable {
     let low: UInt32
     let high: UInt32
 
-    static var fixedTransferSize: Int? { 8 }
+    static var transferLayout: TransferLayout? { .fixed(size: 8) }
     var transferSize: Int { 8 }
 
     func transfer(into output: inout TransferWriter) {
@@ -64,8 +66,7 @@ struct TrailingPadding: Equatable, Transferable {
     let price: Int64
     let side: UInt8
 
-    static var fixedTransferSize: Int? { 9 }
-    static var isBitwiseTransferable: Bool { true }
+    static var transferLayout: TransferLayout? { .bitwise(size: 9) }
     var transferSize: Int { 9 }
 
     func transfer(into output: inout TransferWriter) {
@@ -87,13 +88,22 @@ struct InteriorPadding: Equatable, Transferable {
     let side: UInt8
     let price: Int64
 
-    static var fixedTransferSize: Int? { 9 }
-    static var isBitwiseTransferable: Bool {
-        UInt8.isBitwiseTransferable
-            && Int64.isBitwiseTransferable
-            && MemoryLayout<Self>.offset(of: \Self.side) == 0
-            && MemoryLayout<Self>.offset(of: \Self.price) == MemoryLayout<UInt8>.size
-            && MemoryLayout<Self>.size == MemoryLayout<UInt8>.size + MemoryLayout<Int64>.size
+    static var transferLayout: TransferLayout? {
+        guard
+        let side: TransferLayout = UInt8.transferLayout,
+        let price: TransferLayout = Int64.transferLayout else {
+            return nil
+        }
+        let size: Int = side.size + price.size
+        guard
+        case .bitwise = side,
+        case .bitwise = price,
+        MemoryLayout<Self>.offset(of: \Self.side) == 0,
+        MemoryLayout<Self>.offset(of: \Self.price) == side.size,
+        MemoryLayout<Self>.size == size else {
+            return .fixed(size: size)
+        }
+        return .bitwise(size: size)
     }
     var transferSize: Int { 9 }
 
@@ -126,8 +136,7 @@ struct Handle: Equatable, Transferable {
 
     static func == (a: Self, b: Self) -> Bool { a.box.value == b.box.value }
 
-    static var fixedTransferSize: Int? { 8 }
-    static var isBitwiseTransferable: Bool { true }
+    static var transferLayout: TransferLayout? { .bitwise(size: 8) }
     var transferSize: Int { 8 }
 
     func transfer(into output: inout TransferWriter) {
@@ -147,8 +156,7 @@ struct Handle: Equatable, Transferable {
 struct Probe: Equatable, Transferable {
     let value: UInt64
 
-    static var fixedTransferSize: Int? { 8 }
-    static var isBitwiseTransferable: Bool { UInt64.isBitwiseTransferable }
+    static var transferLayout: TransferLayout? { UInt64.transferLayout }
     var transferSize: Int { 8 }
 
     func transfer(into output: inout TransferWriter) {

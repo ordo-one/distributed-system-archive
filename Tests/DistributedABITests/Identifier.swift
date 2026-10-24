@@ -16,7 +16,7 @@ extension Identifier {
     }
 }
 extension Identifier {
-    static var fixedTransferSize: Int? { 8 }
+    static var transferLayout: TransferLayout? { .fixed(size: 8) }
 
     func withTransferBytes<Result>(_ body: (RawSpan) throws -> Result) rethrows -> Result {
         try body(self.bytes.span.bytes)

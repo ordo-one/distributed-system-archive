@@ -9,14 +9,14 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
     /// for every entry.
     @inlinable public var transferSize: Int {
         var size: Int = ULEB128.size(UInt.init(self.count))
-        if  let keySize: Int = Key.fixedTransferSize {
+        if  let keySize: Int = Key.transferLayout?.size {
             size += self.count * keySize
         } else {
             for key: Key in self.keys {
                 size += key.transferSize
             }
         }
-        if  let valueSize: Int = Value.fixedTransferSize {
+        if  let valueSize: Int = Value.transferLayout?.size {
             size += self.count * valueSize
         } else {
             for value: Value in self.values {

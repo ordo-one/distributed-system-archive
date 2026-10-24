@@ -4,27 +4,45 @@ import Testing
 /// Arrays of elements stored as their transfer bytes travel as one copy of their storage, with
 /// the bytes on the wire, and every refusal, exactly those of a read one element at a time.
 @Suite enum Bitwise {
-    /// The fixed-width integers, `Float` and `Double` state it on a little-endian host, and so
-    /// do a wrapper and a composite that state it from their parts; nothing else does by
-    /// default, an enumeration with an integer raw value included.
+    /// The layout every type states: the fixed-width integers, `Float` and `Double` are copied
+    /// as stored on a little-endian host, and so are a wrapper and a composite that forward or
+    /// compute it from their parts, and an inline array of such elements; `Bool` is a
+    /// discriminant of two; an enumeration with an integer raw value, even one byte wide, and
+    /// a contiguous type are moved one value at a time at their size; a type whose values
+    /// vary in size states none.
     @Test(
         arguments: [
-            (Int8.self, true), (Int16.self, true), (Int32.self, true), (Int64.self, true),
-            (Int128.self, true), (Int.self, true),
-            (UInt8.self, true), (UInt16.self, true), (UInt32.self, true), (UInt64.self, true),
-            (UInt128.self, true), (UInt.self, true),
-            (Float.self, true), (Double.self, true),
-            (Ticket.self, true), (Pair.self, true),
-            (Bool.self, false), (String.self, false), (Side.self, false), (Venue.self, false),
-            (Int?.self, false), (UnstatedTicket.self, false), (Identifier.self, false),
-            ([UInt64].self, false), (InlineArray<2, UInt64>.self, false), (InteriorPadding.self, false),
-        ] as [(any Transferable.Type, Bool)]
-    ) static func Stated(_ type: any Transferable.Type, _ onLittleEndian: Bool) {
+            (Int8.self, .bitwise(size: 1)), (Int16.self, .bitwise(size: 2)), (Int32.self, .bitwise(size: 4)),
+            (Int64.self, .bitwise(size: 8)), (Int128.self, .bitwise(size: 16)), (Int.self, .bitwise(size: 8)),
+            (UInt8.self, .bitwise(size: 1)), (UInt16.self, .bitwise(size: 2)), (UInt32.self, .bitwise(size: 4)),
+            (UInt64.self, .bitwise(size: 8)), (UInt128.self, .bitwise(size: 16)), (UInt.self, .bitwise(size: 8)),
+            (Float.self, .bitwise(size: 4)), (Double.self, .bitwise(size: 8)),
+            (Ticket.self, .bitwise(size: 8)), (Pair.self, .bitwise(size: 8)),
+            (InlineArray<2, UInt64>.self, .bitwise(size: 16)),
+            (Bool.self, .discriminant(count: 2)), (Mark.self, .discriminant(count: 3)),
+            (Side.self, .fixed(size: 1)), (Venue.self, .fixed(size: 2)), (UnstatedTicket.self, .fixed(size: 8)),
+            (UnstatedMark.self, .fixed(size: 1)), (Identifier.self, .fixed(size: 8)),
+            (InteriorPadding.self, .fixed(size: 9)), (InlineArray<2, Bool>.self, .fixed(size: 2)),
+            (InlineArray<0, String>.self, .fixed(size: 1)),
+            (String.self, nil), (Int?.self, nil), ([UInt64].self, nil), (InlineArray<2, String>.self, nil),
+        ] as [(any Transferable.Type, TransferLayout?)]
+    ) static func Layouts(_ type: any Transferable.Type, _ onLittleEndian: TransferLayout?) {
         #if _endian(little)
-        #expect(type.isBitwiseTransferable == onLittleEndian)
+        #expect(type.transferLayout == onLittleEndian)
         #else
-        #expect(!type.isBitwiseTransferable)
+        // copied as stored nowhere on a big-endian host: at its size, one value at a time
+        switch onLittleEndian {
+        case .bitwise(size: let size)?: #expect(type.transferLayout == .fixed(size: size))
+        case let layout: #expect(type.transferLayout == layout)
+        }
         #endif
+    }
+
+    /// A layout’s size is that of every value: one byte for a discriminant.
+    @Test static func LayoutSizes() {
+        #expect(TransferLayout.fixed(size: 9).size == 9)
+        #expect(TransferLayout.bitwise(size: 16).size == 16)
+        #expect(TransferLayout.discriminant(count: 256).size == 1)
     }
 
     /// An array, a contiguous array and a slice of wrappers that state it write the same bytes
@@ -183,17 +201,7 @@ import Testing
         #expect(Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(kind: .discriminant(2), remaining: 2))
     }
 
-    /// `Bool` states two cases, and the enumeration of its case indices its three, and no
-    /// other type states any by default.
-    @Test static func CaseCounts() {
-        #expect(Bool.bitwiseDiscriminantCount == 2)
-        #expect(Mark.bitwiseDiscriminantCount == 3)
-        #expect(UnstatedMark.bitwiseDiscriminantCount == nil)
-        #expect(Side.bitwiseDiscriminantCount == nil)
-        #expect(UInt8.bitwiseDiscriminantCount == nil)
-    }
-
-    /// Arrays of `Bool` and of an enumeration that states its case count write the bytes of a
+    /// Arrays of `Bool` and of an enumeration that states its discriminants write the bytes of a
     /// write one element at a time, spelled out here, and read them back equal.
     @Test(arguments: [0, 1, 3, 128]) static func CheckedArrays(_ count: Int) throws {
         let raw: [UInt8] = (0 ..< count).map { UInt8.init($0 % 3) }
@@ -355,12 +363,13 @@ import Testing
         }
     }
 
-    /// A type of more than one byte that states a case count travels one element at a time.
-    @Test static func CaseCountOfAWideType() throws {
-        let marks: [WideMark] = [.init(rawValue: 7), .init(rawValue: 0x0102)]
-        let golden: [UInt8] = [2] + Self.littleEndian(7) + Self.littleEndian(0x0102)
-        #expect([UInt8].init(transferring: marks) == golden)
-        #expect(try [WideMark].decode(golden) == marks)
+    /// A type that states a discriminant layout but takes more than one byte of memory travels
+    /// one element at a time, with the bytes and the refusals of that read.
+    @Test static func DiscriminantOfAWideType() throws {
+        let marks: [WideMark] = [.init(1), .init(0)]
+        #expect([UInt8].init(transferring: marks) == [2, 1, 0])
+        #expect(try [WideMark].decode([2, 1, 0]) == marks)
+        #expect(Self.refusal([2, 1, 2], as: [WideMark].self) == .init(kind: .discriminant(2), remaining: 0))
     }
 }
 extension Bitwise {

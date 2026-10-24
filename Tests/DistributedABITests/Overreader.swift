@@ -10,7 +10,7 @@ struct Overreader: Hashable, Transferable {
     }
 }
 extension Overreader {
-    static var fixedTransferSize: Int? { 1 }
+    static var transferLayout: TransferLayout? { .fixed(size: 1) }
     var transferSize: Int { 1 }
 
     func transfer(into output: inout TransferWriter) {

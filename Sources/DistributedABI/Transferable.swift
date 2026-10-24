@@ -11,76 +11,22 @@
 /// A value whose memory already is its wire form should conform to ``ContiguousTransferable``
 /// instead, which supplies all three requirements from the bytes it lends.
 public protocol Transferable: Sendable {
-    /// The size of every value of this type, when it is the same for all of them, or nil.
+    /// What every value of this type has in common on the wire, when all of them take the same
+    /// number of bytes, and so how a collection moves a run of them; nil, the default, for a
+    /// type whose values vary in size.
     ///
-    /// A collection of such elements sizes itself from its count alone, so a type that states a
-    /// fixed size must read exactly that many bytes in ``init(transferring:)``, which a debug
-    /// build of the reader checks. The size is at least one byte.
-    static var fixedTransferSize: Int? { get }
-
-    /// Whether a value of this type is stored in memory exactly as its transfer bytes, so that
-    /// an array of them can travel as one copy of its elements’ storage.
-    ///
-    /// A type that states this has a ``fixedTransferSize`` that is the size and the stride of
-    /// its memory, holds no reference or pointer of any kind, and reads back as the value whose
-    /// stored bytes are any bytes of that size: every bit pattern is a valid value. An array, a
-    /// contiguous array, a slice or an inline array of such elements then writes their storage
-    /// after the count with one copy, and reads it back with one copy, with the bytes on the
-    /// wire unchanged. The collection checks the size and the stride itself, and that the type
-    /// holds no strong, weak or unowned reference, and writes and reads each element through
-    /// its own conformance when any of them fails. It cannot see an `unowned(unsafe)`
-    /// reference, an `Unmanaged` one or a raw pointer, which its memory holds as plain bits:
-    /// a type that states this must hold none of them, which is the conformer’s guarantee.
+    /// A ``TransferLayout/fixed(size:)`` type is moved one value at a time, a
+    /// ``TransferLayout/bitwise(size:)`` type as one copy of the storage of a run of values,
+    /// and a ``TransferLayout/discriminant(count:)`` type as one copy with every byte checked.
+    /// A collection of values of any of the three sizes itself from its count alone.
     ///
     /// This is a requirement rather than a marker protocol because the generic conformances of
     /// the collections make the choice: through the witness table, a requirement is one call
     /// and folds away when specialized, where asking for a protocol is a dynamic cast per
-    /// collection; and a derive macro states it by computing it from its fields’ own statements
-    /// and their `MemoryLayout`, which a conformance to a protocol cannot depend on.
-    ///
-    /// The fixed-width integers state it on a little-endian host, as do `Float` and `Double`,
-    /// whose wire form is their bit pattern. A type that wraps one of them as its only stored
-    /// property, and travels as it does, states it by forwarding the wrapped type’s answer:
-    ///
-    /// ```swift
-    /// @inlinable public static var isBitwiseTransferable: Bool {
-    ///     RawValue.isBitwiseTransferable
-    /// }
-    /// ```
-    ///
-    /// A type with an integer raw value does not state it by default: an enumeration is stored
-    /// as its case index rather than its raw value, and not every byte is a case. Neither does
-    /// `Bool`, which reads only 0 and 1. The default is false.
-    static var isBitwiseTransferable: Bool { get }
-
-    /// The number of discriminants of a type stored as one byte that is its transfer byte, the
-    /// bytes from zero up to that number, so that an array of them can travel as one copy of
-    /// its storage, each byte checked against that number before it is copied. Nil for any
-    /// other type, and by default.
-    ///
-    /// `Bool` states 2: it is stored as the byte 0 or 1 it travels as. An enumeration with no
-    /// payload is stored as its case index, which Swift’s type layout makes the cases’
-    /// declaration order, in one byte for two to 256 cases; when its raw values are `UInt8`
-    /// and are exactly those indices, its stored byte is its transfer byte, and it can state
-    /// its case count.
-    ///
-    /// The statement is not meant to be written by hand. The SDK’s generator emits it for the
-    /// enumerations it generates, and ordo-sdk’s derive macro for a plugin’s own, each after
-    /// checking from the declaration that the enumeration has no payload and that its raw
-    /// values are implicit or exactly its case indices, and counting the cases: for five such
-    /// cases, the conformance they generate carries `bitwiseDiscriminantCount` returning 5.
-    ///
-    /// A statement written by hand must guarantee the same: a type stored in one byte, each
-    /// value stored as the byte it travels as, and every byte below the count a value. The
-    /// collection checks the size, the stride and the fixed size of one byte itself, and
-    /// reads each element through its own conformance when any of them fails; it refuses the
-    /// first byte at or above the count with the ``TransferError/Kind/discriminant(_:)`` error
-    /// a read of one value at a time reports, and leaves the reader just past it, where that
-    /// read leaves it. It cannot check the rest, and nothing reports a wrong statement: a byte
-    /// out of range is refused only from the stated count up, so a count above the number of
-    /// cases accepts a byte of no case as a value of the type, and a count or raw values that
-    /// do not match the cases read a byte as the wrong case, silently.
-    static var bitwiseDiscriminantCount: Int? { get }
+    /// collection; and a derive macro states the layout of a composite by computing it from its
+    /// fields’ own layouts and their `MemoryLayout`, which a conformance to a protocol cannot
+    /// depend on.
+    static var transferLayout: TransferLayout? { get }
 
     /// The exact number of bytes ``transfer(into:)`` writes, at least one.
     ///
@@ -99,60 +45,52 @@ public protocol Transferable: Sendable {
     init(transferring input: inout TransferReader) throws(TransferError)
 }
 extension Transferable {
-    @inlinable public static var fixedTransferSize: Int? { nil }
-    @inlinable public static var isBitwiseTransferable: Bool { false }
-    @inlinable public static var bitwiseDiscriminantCount: Int? { nil }
+    @inlinable public static var transferLayout: TransferLayout? { nil }
 }
 extension Transferable {
-    /// The fixed size of a value of this type when an array of them can travel as one copy of
-    /// its storage: the type states ``isBitwiseTransferable``, its fixed size is the size and
-    /// the stride of its memory, and that memory is trivial to copy and destroy, which excludes
-    /// strong, weak and unowned references; an `unowned(unsafe)` reference, an `Unmanaged` one
-    /// or a raw pointer passes, and the statement promises there is none. Nil otherwise, and
-    /// then each element travels through its own conformance. Specialized for a type, this folds to a
-    /// constant; through the witness table, it asks the type once per collection.
-    @inlinable static var bitwiseTransferStride: Int? {
-        guard Self.isBitwiseTransferable,
-        let size: Int = Self.fixedTransferSize,
+    /// How an array of values of this type travels as one copy of its storage: the size of a
+    /// value, and the number of its values when each stored byte must be checked against it.
+    /// Nil when the type’s ``transferLayout`` is neither ``TransferLayout/bitwise(size:)`` nor
+    /// ``TransferLayout/discriminant(count:)``, or its memory does not bear the layout out:
+    /// the size must be the size and the stride of its memory, which must be trivial to copy
+    /// and destroy, excluding strong, weak and unowned references (an `unowned(unsafe)`
+    /// reference, an `Unmanaged` one or a raw pointer passes, and the layout promises there is
+    /// none), and a discriminant’s count must be from 1 to 256. Each element then travels
+    /// through its own conformance. Specialized for a type, this folds to a constant; through
+    /// the witness table, it asks the type once per collection.
+    @inlinable static var bitwiseTransfer: (size: Int, cases: Int?)? {
+        switch Self.transferLayout {
+        case .bitwise(size: let size)?:
+            guard
             size == MemoryLayout<Self>.size,
             size == MemoryLayout<Self>.stride,
-        _isPOD(Self.self) else {
-            return nil
-        }
-        return size
-    }
-
-    /// How an array of values of this type travels as one copy of its storage: the size of a
-    /// value, and the number of its values when each stored byte must be checked against it,
-    /// from ``bitwiseDiscriminantCount``. Nil when the type states neither statement, or
-    /// its layout does not bear the statement out, and then each element travels through its
-    /// own conformance.
-    @inlinable static var bitwiseTransfer: (size: Int, cases: Int?)? {
-        if  let size: Int = Self.bitwiseTransferStride {
+            _isPOD(Self.self) else {
+                return nil
+            }
             return (size, nil)
-        }
-        guard
-        let cases: Int = Self.bitwiseDiscriminantCount, 1 ... 256 ~= cases,
-        Self.fixedTransferSize == 1,
-        MemoryLayout<Self>.size == 1,
-        MemoryLayout<Self>.stride == 1,
-        _isPOD(Self.self) else {
+        case .discriminant(count: let count)?:
+            guard 1 ... 256 ~= count,
+            MemoryLayout<Self>.size == 1,
+            MemoryLayout<Self>.stride == 1,
+            _isPOD(Self.self) else {
+                return nil
+            }
+            return (1, count)
+        case .fixed?, nil:
             return nil
         }
-        return (1, cases)
     }
 }
 extension Transferable
     where Self: FixedWidthInteger & BitwiseCopyable & ConvertibleFromBytes & ConvertibleToBytes {
-    /// An integer travels as its fixed-width little-endian bytes.
-    @inlinable public static var fixedTransferSize: Int? { MemoryLayout<Self>.size }
-    /// On a little-endian host, an integer is stored as the bytes it travels as. A type that
-    /// gives itself another wire form than this states false.
-    @inlinable public static var isBitwiseTransferable: Bool {
+    /// An integer travels as its fixed-width little-endian bytes, which on a little-endian host
+    /// are the bytes it is stored as. A type that gives itself another wire form than this
+    /// states another layout.
+    @inlinable public static var transferLayout: TransferLayout? {
         #if _endian(little)
-        true
+        .bitwise(size: MemoryLayout<Self>.size)
         #else
-        false
+        .fixed(size: MemoryLayout<Self>.size)
         #endif
     }
     @inlinable public var transferSize: Int { MemoryLayout<Self>.size }
@@ -165,9 +103,13 @@ extension Transferable
     }
 }
 extension Transferable where Self: RawRepresentable, RawValue: Transferable & FixedWidthInteger {
-    /// A value with an integer raw value travels as its raw value; a raw value with no case is
-    /// a ``TransferError/Kind/discriminant(_:)`` error.
-    @inlinable public static var fixedTransferSize: Int? { RawValue.fixedTransferSize }
+    /// A value with an integer raw value travels as its raw value, at its raw value’s size, one
+    /// value at a time: an enumeration is stored as its case index, not its raw value, so its
+    /// layout is never ``TransferLayout/bitwise(size:)``. A raw value with no case is a
+    /// ``TransferError/Kind/discriminant(_:)`` error.
+    @inlinable public static var transferLayout: TransferLayout? {
+        RawValue.transferLayout.map { .fixed(size: $0.size) }
+    }
     @inlinable public var transferSize: Int { self.rawValue.transferSize }
 
     @inlinable public func transfer(into output: inout TransferWriter) {

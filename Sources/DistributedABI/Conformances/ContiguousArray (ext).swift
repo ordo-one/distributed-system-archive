@@ -2,7 +2,7 @@ extension ContiguousArray: Transferable where Element: Transferable {
     /// A contiguous array travels exactly as an ``Swift/Array`` with the same elements.
     @inlinable public var transferSize: Int {
         // elements of a fixed size need only the count, as an array’s do
-        if  let size: Int = Element.fixedTransferSize {
+        if  let size: Int = Element.transferLayout?.size {
             return ULEB128.size(UInt.init(self.count)) + self.count * size
         }
         return self.span.arrayTransferSize

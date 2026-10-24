@@ -3,7 +3,7 @@ extension Set: Transferable where Element: Transferable {
     /// repeats an earlier one is a ``TransferError/Kind/duplicate(_:)`` error.
     @inlinable public var transferSize: Int {
         let header: Int = ULEB128.size(UInt.init(self.count))
-        if  let size: Int = Element.fixedTransferSize {
+        if  let size: Int = Element.transferLayout?.size {
             return header + self.count * size
         }
         // a loop of the set’s own, as the write is: a loop over a generic collection costs

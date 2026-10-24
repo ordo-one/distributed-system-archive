@@ -96,10 +96,10 @@ extension TransferWriter {
     /// Writes `elements` one after another, each as ``append(element:)`` writes it, with no
     /// count in front of them: the elements of an array’s wire form.
     ///
-    /// When the element type states ``Transferable/isBitwiseTransferable`` or
-    /// ``Transferable/bitwiseDiscriminantCount``, and its fixed size is the size and the stride
-    /// of its memory, which holds no strong, weak or unowned reference, the elements’ storage
-    /// is written with one copy instead, which is the same bytes; otherwise each element writes
+    /// When the element type’s layout is ``TransferLayout/bitwise(size:)`` or
+    /// ``TransferLayout/discriminant(count:)``, and its size is the size and the stride of its
+    /// memory, which holds no strong, weak or unowned reference, the elements’ storage is
+    /// written with one copy instead, which is the same bytes; otherwise each element writes
     /// itself. A collection of one’s own whose elements lie in contiguous storage writes its
     /// count with ``append(uleb128:)`` and then its elements through this, from a span of that
     /// storage, and reads them back with ``TransferReader/takeElements(_:into:)``.

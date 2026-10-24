@@ -1,6 +1,6 @@
 extension OutputSpan where Element: Transferable {
     /// Initializes the next `count` elements by copying `bytes`, the transfer bytes of exactly
-    /// that many elements of a type with a ``Transferable/bitwiseTransferStride``, whose
+    /// that many elements of a type with a ``Transferable/bitwiseTransfer``, whose
     /// storage is those bytes.
     @_lifetime(self: copy self)
     @inlinable @inline(always) mutating func append(bitwise bytes: RawSpan, count: Int) {

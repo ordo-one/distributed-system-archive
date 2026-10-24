@@ -1,8 +1,7 @@
 extension Bool: Transferable {
     /// A `Bool` travels as one byte, 0 or 1; any other byte is a discriminant error.
-    @inlinable public static var fixedTransferSize: Int? { 1 }
     /// `false` and `true` are stored as the bytes 0 and 1 they travel as.
-    @inlinable public static var bitwiseDiscriminantCount: Int? { 2 }
+    @inlinable public static var transferLayout: TransferLayout? { .discriminant(count: 2) }
     @inlinable public var transferSize: Int { 1 }
 
     @inlinable public func transfer(into output: inout TransferWriter) {

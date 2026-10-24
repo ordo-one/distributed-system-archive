@@ -12,7 +12,7 @@ enum Tally: UInt8, CaseIterable, Equatable, Transferable {
     static let reads: Atomic<Int> = .init(0)
     static let writes: Atomic<Int> = .init(0)
 
-    static var bitwiseDiscriminantCount: Int? { 3 }
+    static var transferLayout: TransferLayout? { .discriminant(count: 3) }
 
     func transfer(into output: inout TransferWriter) {
         Self.writes.add(1, ordering: .relaxed)

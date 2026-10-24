@@ -10,7 +10,7 @@ struct Undersized: Hashable, Transferable {
     }
 }
 extension Undersized {
-    static var fixedTransferSize: Int? { 2 }
+    static var transferLayout: TransferLayout? { .fixed(size: 2) }
     var transferSize: Int { 2 }
 
     func transfer(into output: inout TransferWriter) {

@@ -5,24 +5,32 @@ extension InlineArray: Transferable where Element: Transferable {
     /// value takes at least one, and any other byte in its place is a
     /// ``TransferError/Kind/discriminant(_:)`` error.
     ///
-    /// The fixed size is one byte when the count is zero. Otherwise it is the count times the
-    /// element’s fixed size, when the element states one and the product fits in `Int`, so
-    /// that a composite holding an inline array keeps a fixed size. In any other case it is
-    /// nil.
-    @inlinable public static var fixedTransferSize: Int? {
+    /// The layout is a fixed size of one byte when the count is zero. Otherwise it is the count
+    /// times the element’s size, when the element states a layout and the product fits in
+    /// `Int`, so that a composite holding an inline array keeps a fixed size: copied as stored
+    /// when the element is, since the inline array then is too, and one element at a time
+    /// otherwise. In any other case it is nil.
+    @inlinable public static var transferLayout: TransferLayout? {
         if  count == 0 {
-            return 1
+            return .fixed(size: 1)
         }
         guard
-        let size: Int = Element.fixedTransferSize else {
+        let layout: TransferLayout = Element.transferLayout else {
             return nil
         }
         let product: (partialValue: Int, overflow: Bool) = count
-            .multipliedReportingOverflow(by: size)
-        return product.overflow ? nil : product.partialValue
+            .multipliedReportingOverflow(by: layout.size)
+        if  product.overflow {
+            return nil
+        }
+        if  case .bitwise = layout {
+            return .bitwise(size: product.partialValue)
+        } else {
+            return .fixed(size: product.partialValue)
+        }
     }
     @inlinable public var transferSize: Int {
-        if  let size: Int = Self.fixedTransferSize {
+        if  let size: Int = Self.transferLayout?.size {
             return size
         }
         var size: Int = 0
@@ -32,8 +40,8 @@ extension InlineArray: Transferable where Element: Transferable {
         return size
     }
 
-    /// Elements stored as their transfer bytes, which ``Transferable/isBitwiseTransferable``
-    /// states, are written with one copy of their storage, and others one at a time.
+    /// Elements whose layout copies them as stored are written with one copy of their storage,
+    /// and others one at a time.
     @inlinable public func transfer(into output: inout TransferWriter) {
         if  count == 0 {
             output.append(0)

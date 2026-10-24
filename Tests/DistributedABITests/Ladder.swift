@@ -12,13 +12,13 @@ struct Ladder: Transferable {
     }
 }
 extension Ladder {
-    static var fixedTransferSize: Int? {
+    static var transferLayout: TransferLayout? {
         guard
-        let prices: Int = InlineArray<2, Int32>.fixedTransferSize,
-        let side: Int = Side.fixedTransferSize else {
+        let prices: TransferLayout = InlineArray<2, Int32>.transferLayout,
+        let side: TransferLayout = Side.transferLayout else {
             return nil
         }
-        return prices + side
+        return .fixed(size: prices.size + side.size)
     }
     var transferSize: Int {
         self.prices.transferSize + self.side.transferSize

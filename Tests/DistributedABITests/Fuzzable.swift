@@ -14,7 +14,7 @@ protocol Fuzzable: Transferable {
     static func same(_ a: Self, _ b: Self) -> Bool
 }
 extension Fuzzable {
-    static var shape: Fuzz.Shape { Self.fixedTransferSize.map(Fuzz.Shape.fixed(_:)) ?? .opaque }
+    static var shape: Fuzz.Shape { Self.transferLayout.map { Fuzz.Shape.fixed($0.size) } ?? .opaque }
 }
 extension Fuzzable where Self: Equatable {
     static func same(_ a: Self, _ b: Self) -> Bool { a == b }

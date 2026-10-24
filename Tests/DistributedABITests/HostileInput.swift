@@ -148,9 +148,9 @@ import Testing
     /// all when it has two, where the product overflows, rather than the wrapped product.
     @Test(
         arguments: [
-            (InlineArray<0, Oversized>.fixedTransferSize, 1),
-            (InlineArray<1, Oversized>.fixedTransferSize, .max),
-            (InlineArray<2, Oversized>.fixedTransferSize, nil),
+            (InlineArray<0, Oversized>.transferLayout?.size, 1),
+            (InlineArray<1, Oversized>.transferLayout?.size, .max),
+            (InlineArray<2, Oversized>.transferLayout?.size, nil),
         ] as [(Int?, Int?)]
     ) static func OversizedInlineArrays(_ stated: Int?, _ expected: Int?) {
         #expect(stated == expected)

@@ -4,7 +4,7 @@ extension Span where Element: Transferable {
     /// included, so this is the ``Transferable/transferSize`` of an ``Swift/Array`` with the
     /// same elements, and a collection of one’s own that writes an array’s wire form can return
     /// it from its own `transferSize`, over a span of its elements. It is not the size of an
-    /// inline array, which writes no count. Elements of a fixed size are sized from the count
+    /// inline array, which writes no count. Elements whose type states a layout are sized from the count
     /// alone, without visiting any of them.
     ///
     /// Indexing the span lends each element where it lies. Where this body is specialized for
@@ -16,7 +16,7 @@ extension Span where Element: Transferable {
     /// show the copy is not needed, which depends on how the element lends its bytes.
     @inlinable public var arrayTransferSize: Int {
         let header: Int = ULEB128.size(UInt.init(self.count))
-        if  let size: Int = Element.fixedTransferSize {
+        if  let size: Int = Element.transferLayout?.size {
             return header + self.count * size
         }
         var size: Int = header

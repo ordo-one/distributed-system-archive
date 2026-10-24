@@ -11,7 +11,7 @@ struct Oversized: Hashable, Transferable {
     }
 }
 extension Oversized {
-    static var fixedTransferSize: Int? { .max }
+    static var transferLayout: TransferLayout? { .fixed(size: .max) }
     var transferSize: Int { 1 }
 
     func transfer(into output: inout TransferWriter) {
