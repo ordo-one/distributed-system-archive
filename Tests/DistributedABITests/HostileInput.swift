@@ -71,8 +71,6 @@ import Testing
             ),
             // an entry whose least size cannot be represented
             Hostile.init("entry size past Int.max", [1, 0, 0], as: [Oversized: UInt8].self, .count(1, remaining: 2)),
-            // an inline array whose fixed size cannot be represented, which states none
-            Hostile.init("inline size past Int.max", [1, 1, 2], as: [InlineArray<2, Oversized>].self, .expected(.max, encountered: 1)),
             // malformed ULEB128
             Hostile.init(
                 "count over Int.max",
@@ -107,22 +105,6 @@ import Testing
                 [0, 0],
                 as: InlineArray<0, UInt8>.self,
                 .expected(0, encountered: 1)
-            ),
-            // an element of fixed size that reads fewer bytes than its type states
-            Hostile.init("fixed-size element read short", [1, 5, 6], as: [Undersized].self, .expected(2, encountered: 1)),
-            Hostile.init("fixed-size key read short", [1, 5, 6, 7], as: [Undersized: UInt8].self, .expected(2, encountered: 1)),
-            Hostile.init("fixed-size inline element read short", [5, 6], as: InlineArray<1, Undersized>.self, .expected(2, encountered: 1)),
-            // and one that reads more, wherever a collection reads it
-            Hostile.init("fixed-size element read long", [1, 5, 6], as: [Overreader].self, .expected(1, encountered: 2)),
-            Hostile.init("fixed-size key read long", [1, 5, 6, 7], as: [Overreader: UInt8].self, .expected(1, encountered: 2)),
-            Hostile.init("fixed-size value read long", [1, 7, 5, 6], as: [UInt8: Overreader].self, .expected(1, encountered: 2)),
-            Hostile.init("fixed-size inline element read long", [5, 6], as: InlineArray<1, Overreader>.self, .expected(1, encountered: 2)),
-            Hostile.init("fixed-size element of one’s own read long", [1, 5, 6], as: Batch<Overreader>.self, .expected(1, encountered: 2)),
-            Hostile.init(
-                "fixed-size key of one’s own read long",
-                [1, 5, 6, 7],
-                as: Ledger<Overreader, UInt8>.self,
-                .expected(1, encountered: 2)
             ),
             // duplicates
             Hostile.init("set duplicate", [3, 5, 6, 5], as: Set<UInt8>.self, .duplicate(2)),

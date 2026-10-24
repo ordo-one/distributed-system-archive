@@ -1,7 +1,7 @@
 import DistributedABI
 
 /// A value that states a fixed size of one byte but reads two, as a faulty conformer might: a
-/// collection must refuse it, rather than read every later element from the wrong offset.
+/// debug build stops at it, rather than read every later element from the wrong offset.
 struct Overreader: Hashable, Transferable {
     let byte: UInt8
 

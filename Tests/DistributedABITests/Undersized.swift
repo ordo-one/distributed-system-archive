@@ -1,7 +1,7 @@
 import DistributedABI
 
 /// A value that states a fixed size of two bytes but reads one, as a faulty conformer might:
-/// a collection must refuse it, rather than read every later element from the wrong offset.
+/// a debug build stops at it, rather than read every later element from the wrong offset.
 struct Undersized: Hashable, Transferable {
     let byte: UInt8
 

@@ -13,9 +13,9 @@
 public protocol Transferable: Sendable {
     /// The size of every value of this type, when it is the same for all of them, or nil.
     ///
-    /// A collection of such elements sizes itself from its count alone, and checks that each
-    /// element read exactly that many bytes, so a type that states a fixed size must read
-    /// exactly that many in ``init(transferring:)``. The size is at least one byte.
+    /// A collection of such elements sizes itself from its count alone, so a type that states a
+    /// fixed size must read exactly that many bytes in ``init(transferring:)``, which a debug
+    /// build of the reader checks. The size is at least one byte.
     static var fixedTransferSize: Int? { get }
 
     /// Whether a value of this type is stored in memory exactly as its transfer bytes, so that

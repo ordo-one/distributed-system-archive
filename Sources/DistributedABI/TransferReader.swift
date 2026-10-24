@@ -119,28 +119,27 @@ extension TransferReader {
     /// One value as the element of a collection, read through its
     /// ``Transferable/init(transferring:)``, whose errors propagate unchanged.
     ///
-    /// Once that initializer has succeeded, a value whose type states a
-    /// ``Transferable/fixedTransferSize`` must have consumed exactly that many bytes, or the
-    /// read is refused with ``TransferError/Kind/expected(_:encountered:)``, carrying the fixed
-    /// size and then the number of bytes the value consumed: a faulty conformer that read fewer
-    /// or more would otherwise shift every element after it, with nothing around the element
-    /// to catch it. The check follows the read rather than bounding it, so a `UInt32` read
-    /// from two bytes throws its own `.expected(4, encountered: 2)`, having consumed nothing.
+    /// A debug build of the caller checks that a value whose type states a
+    /// ``Transferable/fixedTransferSize`` consumed exactly that many bytes, as the writer
+    /// checks that every element wrote at least one: a faulty conformer that read fewer or more
+    /// would otherwise shift every element after it. The check is of the conformer, not of the
+    /// bytes, since a value whose bytes run out has already thrown; a release build compiles it
+    /// away, and then passes the caller’s storage for the value straight to its initializer.
     ///
     /// A collection of one’s own reads each of its elements, or each key and each value of an
     /// entry, through this rather than through the element’s own initializer.
     @inlinable public mutating func takeElement<Element>(
         _: Element.Type
     ) throws(TransferError) -> Element where Element: Transferable {
-        guard
-        let size: Int = Element.fixedTransferSize else {
-            return try .init(transferring: &self)
-        }
         let start: Int = self.index
         let value: Element = try .init(transferring: &self)
-        guard self.index &- start == size else {
-            throw .init(.expected(size, encountered: self.index &- start))
-        }
+        assert(
+            Element.fixedTransferSize.map { $0 == self.index &- start } ?? true,
+            """
+            \(Element.self) read \(self.index &- start) bytes, but states a fixed size of \
+            \(Element.fixedTransferSize ?? 0)
+            """
+        )
         return value
     }
 
