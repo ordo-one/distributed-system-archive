@@ -43,14 +43,14 @@
     ///
     /// `Bool` states 2. An enumeration with no payload is stored as its case index, which
     /// Swift’s type layout makes the cases’ declaration order, in one byte for two to 256
-    /// cases; when its raw values are `UInt8` and are exactly those indices, its stored byte is
-    /// its transfer byte, and it can state its case count.
+    /// cases; when its raw values are of a one-byte integer type (`UInt8`, or `Int8` below 128)
+    /// and are exactly those indices, its stored byte is its transfer byte, and it can state its
+    /// case count.
     ///
-    /// The statement is not meant to be written by hand. The SDK’s generator emits it for the
-    /// enumerations it generates, and ordo-sdk’s derive macro for a plugin’s own, each after
-    /// checking from the declaration that the enumeration has no payload and that its raw
-    /// values are implicit or exactly its case indices, and counting the cases: for five such
-    /// cases, the conformance they generate states `.discriminant(count: 5)`.
+    /// The statement is not meant to be written by hand. A code generator or a derive macro
+    /// emits it after checking from the declaration that the enumeration has no payload and that
+    /// its raw values are implicit or exactly its case indices, and counting the cases: for five
+    /// such cases, the conformance it generates states `.discriminant(count: 5)`.
     ///
     /// A statement written by hand must guarantee the same: a type stored in one byte, each
     /// value stored as the byte it travels as, and every byte below the count a value. The
