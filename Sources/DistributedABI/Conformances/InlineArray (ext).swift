@@ -56,23 +56,23 @@ extension InlineArray: Transferable where Element: Transferable {
         }
     }
     /// Reads elements stored as their transfer bytes with one copy, through
-    /// ``TransferReader/takeElements(_:into:)``, and others each through
-    /// ``TransferReader/takeElement(_:)``, so that an element of fixed size must read exactly
+    /// ``TransferReader/readElements(count:into:)``, and others each through
+    /// ``TransferReader/read(_:)``, so that an element of fixed size must read exactly
     /// that many bytes.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
         if  count == 0 {
-            switch try input.take(UInt8.self) {
+            switch try input.readByte() {
             case 0: break
             case let code: throw .init(.discriminant(.init(code)))
             }
         } else if case _? = Element.bitwiseTransfer {
             self = try .init { (output: inout OutputSpan<Element>) throws(TransferError) in
-                try input.takeElements(count, into: &output)
+                try input.readElements(count: count, into: &output)
             }
             return
         }
         self = try .init { (_: Int) throws(TransferError) -> Element in
-            try input.takeElement(Element.self)
+            try input.read(Element.self)
         }
     }
 }

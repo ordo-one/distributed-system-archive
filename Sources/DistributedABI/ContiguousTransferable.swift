@@ -23,7 +23,7 @@ extension ContiguousTransferable {
         if  let size: Int = Self.transferLayout?.size {
             return size
         }
-        return self.withTransferBytes { ULEB128.size(UInt.init($0.byteCount)) + $0.byteCount }
+        return self.withTransferBytes { ULEB128.size($0.byteCount) + $0.byteCount }
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
@@ -40,9 +40,9 @@ extension ContiguousTransferable {
     /// otherwise a ULEB128 length and that many bytes.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
         if  let size: Int = Self.transferLayout?.size {
-            try self.init(transferBytes: try input.take(size))
+            try self.init(transferBytes: try input.readBytes(count: size))
         } else {
-            try self.init(transferBytes: try input.takeContiguous())
+            try self.init(transferBytes: try input.readContiguousBytes())
         }
     }
 }

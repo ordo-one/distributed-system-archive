@@ -37,7 +37,7 @@ struct WideMark: Equatable, Transferable {
         output.append(self.value)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        let byte: UInt8 = try input.take(UInt8.self)
+        let byte: UInt8 = try input.readByte()
         guard byte < 2 else {
             throw .init(.discriminant(.init(byte)))
         }

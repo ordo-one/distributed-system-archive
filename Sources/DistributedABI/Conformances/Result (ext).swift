@@ -19,7 +19,7 @@ extension Result: Transferable where Success: Transferable, Failure: Transferabl
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self = .success(try .init(transferring: &input))
         case 1: self = .failure(try .init(transferring: &input))
         case let code: throw .init(.discriminant(.init(code)))

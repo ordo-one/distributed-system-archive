@@ -7,4 +7,9 @@ extension ULEB128 {
         let value: UInt = value | 1
         return (UInt.bitWidth - value.leadingZeroBitCount + 6) / 7
     }
+
+    /// The number of bytes a count or a length takes, which is never negative.
+    @inlinable public static func size(_ value: Int) -> Int {
+        Self.size(UInt.init(value))
+    }
 }

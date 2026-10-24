@@ -99,7 +99,7 @@ extension Transferable
         output.append(littleEndian: self)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        self = try input.take(Self.self)
+        self = try input.read(littleEndian: Self.self)
     }
 }
 extension Transferable where Self: RawRepresentable, RawValue: Transferable & FixedWidthInteger {

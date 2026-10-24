@@ -49,7 +49,7 @@ import Foundation
         unsafe UnsafeRawBufferPointer.init(rebasing: frame[..<count]).bytes
     )
     let value: Value = try .init(transferring: &input)
-    try input.finish()
+    try input.readEnd()
     return value
 }
 
@@ -154,7 +154,7 @@ func debugWriteOK<Value>(
                 return false
             }
         }
-        try input.finish()
+        try input.readEnd()
         return true
     } catch {
         return false

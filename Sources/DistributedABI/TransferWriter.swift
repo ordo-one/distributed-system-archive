@@ -52,6 +52,11 @@ extension TransferWriter {
         }
     }
 
+    /// Appends a count or a length, which is never negative, as a ULEB128 number.
+    @inlinable @inline(always) public mutating func append(uleb128 value: Int) {
+        self.append(uleb128: UInt.init(value))
+    }
+
     // emitted into the client, so a number of 128 or more is a direct call rather than one
     // through the framework’s symbol stub, and kept out of line, away from every caller;
     // `@inlinable @inline(never)` was measured and still called through the stub, since a
@@ -102,7 +107,7 @@ extension TransferWriter {
     /// written with one copy instead, which is the same bytes; otherwise each element writes
     /// itself. A collection of one’s own whose elements lie in contiguous storage writes its
     /// count with ``append(uleb128:)`` and then its elements through this, from a span of that
-    /// storage, and reads them back with ``TransferReader/takeElements(_:into:)``.
+    /// storage, and reads them back with ``TransferReader/readElements(count:into:)``.
     @inlinable public mutating func append<Element>(elements: Span<Element>) where Element: Transferable {
         if  elements.count != 0, case _? = Element.bitwiseTransfer {
             self.append(bitwise: elements)
@@ -122,9 +127,9 @@ extension TransferWriter {
     }
 
     /// Appends a ULEB128 length, then `bytes`: the inverse of
-    /// ``TransferReader/takePrefixed()``.
+    /// ``TransferReader/readPrefixedBytes()``.
     @inlinable public mutating func append(prefixed bytes: RawSpan) {
-        self.append(uleb128: UInt.init(bytes.byteCount))
+        self.append(uleb128: bytes.byteCount)
         self.append(bytes: bytes)
     }
 }

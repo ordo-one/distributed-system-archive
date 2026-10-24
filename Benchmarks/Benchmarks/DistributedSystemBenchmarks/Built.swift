@@ -19,12 +19,12 @@ extension Built: ContiguousTransferable {
     }
     init(transferBytes: RawSpan) throws(TransferError) {
         var input: TransferReader = .init(transferBytes)
-        let count: UInt32 = try input.take(UInt32.self)
+        let count: UInt32 = try input.read(littleEndian: UInt32.self)
         var fields: [UInt64] = []
         for _: UInt32 in 0 ..< count {
-            fields.append(try input.take(UInt64.self))
+            fields.append(try input.read(littleEndian: UInt64.self))
         }
-        try input.finish()
+        try input.readEnd()
         self.init(fields: fields)
     }
 }

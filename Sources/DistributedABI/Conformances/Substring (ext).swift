@@ -2,7 +2,7 @@ extension Substring: Transferable {
     /// A substring travels exactly as a ``Swift/String`` with the same contents.
     @inlinable public var transferSize: Int {
         let count: Int = self.utf8.count
-        return ULEB128.size(UInt.init(count)) + count
+        return ULEB128.size(count) + count
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
@@ -21,7 +21,7 @@ extension Substring: Transferable {
     @usableFromInline @_alwaysEmitIntoClient @inline(never) func transfer(
         transcoding output: inout TransferWriter
     ) {
-        output.append(uleb128: UInt.init(self.utf8.count))
+        output.append(uleb128: self.utf8.count)
         for byte: UInt8 in self.utf8 {
             output.append(byte)
         }

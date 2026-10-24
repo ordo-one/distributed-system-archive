@@ -20,7 +20,7 @@ enum Tally: UInt8, CaseIterable, Equatable, Transferable {
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         Self.reads.add(1, ordering: .relaxed)
-        let byte: UInt8 = try input.take(UInt8.self)
+        let byte: UInt8 = try input.readByte()
         guard
         let value: Self = .init(rawValue: byte) else {
             throw .init(.discriminant(.init(byte)))
@@ -45,7 +45,7 @@ enum UnstatedTally: UInt8, CaseIterable, Equatable, Transferable {
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
         Self.reads.add(1, ordering: .relaxed)
-        let byte: UInt8 = try input.take(UInt8.self)
+        let byte: UInt8 = try input.readByte()
         guard
         let value: Self = .init(rawValue: byte) else {
             throw .init(.discriminant(.init(byte)))

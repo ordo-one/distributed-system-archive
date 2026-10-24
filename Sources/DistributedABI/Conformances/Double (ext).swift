@@ -14,6 +14,6 @@ extension Double: Transferable {
         output.append(littleEndian: self.bitPattern)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(bitPattern: try input.take(UInt64.self))
+        self.init(bitPattern: try input.read(littleEndian: UInt64.self))
     }
 }

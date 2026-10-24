@@ -12,7 +12,7 @@ extension Optional: Transferable where Wrapped: Transferable {
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self = nil
         case 1: self = try Wrapped.init(transferring: &input)
         case let code: throw .init(.discriminant(.init(code)))

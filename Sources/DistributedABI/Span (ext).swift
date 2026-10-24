@@ -15,7 +15,7 @@ extension Span where Element: Transferable {
     /// reference. A loop over the array itself copies each element unless the optimizer can
     /// show the copy is not needed, which depends on how the element lends its bytes.
     @inlinable public var arrayTransferSize: Int {
-        let header: Int = ULEB128.size(UInt.init(self.count))
+        let header: Int = ULEB128.size(self.count)
         if  let size: Int = Element.transferLayout?.size {
             return header + self.count * size
         }

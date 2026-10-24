@@ -5,7 +5,7 @@ extension String: Transferable {
     /// transcoded first, which may allocate.
     @inlinable public var transferSize: Int {
         let count: Int = self.utf8.count
-        return ULEB128.size(UInt.init(count)) + count
+        return ULEB128.size(count) + count
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
@@ -30,7 +30,7 @@ extension String: Transferable {
     /// Reads a ULEB128 length and that many bytes; bytes that are not valid UTF-8 are refused
     /// with the standard library’s validation error as the payload.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        let bytes: RawSpan = try input.takeUTF8()
+        let bytes: RawSpan = try input.readUTF8Bytes()
         let utf8: UTF8Span
         do {
             utf8 = try .init(validating: .init(viewing: bytes))

@@ -14,6 +14,6 @@ extension Float: Transferable {
         output.append(littleEndian: self.bitPattern)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(bitPattern: try input.take(UInt32.self))
+        self.init(bitPattern: try input.read(littleEndian: UInt32.self))
     }
 }

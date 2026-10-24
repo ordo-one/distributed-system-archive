@@ -13,7 +13,7 @@ extension Marker {
         output.append(0)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self.init()
         case let code: throw .init(.discriminant(.init(code)))
         }

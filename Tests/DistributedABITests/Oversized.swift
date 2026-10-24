@@ -18,6 +18,6 @@ extension Oversized {
         output.append(self.byte)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(byte: try input.take(UInt8.self))
+        self.init(byte: try input.readByte())
     }
 }

@@ -17,8 +17,8 @@ extension Overreader {
         output.append(self.byte)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        let byte: UInt8 = try input.take(UInt8.self)
-        _ = try input.take(UInt8.self)
+        let byte: UInt8 = try input.readByte()
+        _ = try input.readByte()
         self.init(byte: byte)
     }
 }

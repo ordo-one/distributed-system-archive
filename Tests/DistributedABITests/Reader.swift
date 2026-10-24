@@ -13,7 +13,7 @@ import Testing
 //
 //      func escape(_ bytes: [UInt8]) -> () -> Int {
 //          var input: TransferReader = .init(bytes.span.bytes)
-//          let span: RawSpan = input.takeRemaining()
+//          let span: RawSpan = input.readRemainingBytes()
 //          return { span.byteCount }
 //      }
 //      // error: lifetime-dependent variable 'span' escapes its scope
@@ -29,30 +29,54 @@ import Testing
 //      // error: lifetime-dependent variable 'input' escapes its scope
 
 @Suite enum Reader {
-    @Test(arguments: [0, 1, 4, 9]) static func Take(_ count: Int) throws {
+    @Test(arguments: [0, 1, 4, 9]) static func Bytes(_ count: Int) throws {
         let bytes: [UInt8] = .init(0 ..< 9)
         var input: TransferReader = .init(bytes.span.bytes)
-        let head: RawSpan = try input.take(count)
+        let head: RawSpan = try input.readBytes(count: count)
         #expect(head.byteCount == count)
         #expect(input.remaining == 9 - count)
-        let tail: RawSpan = input.takeRemaining()
+        let tail: RawSpan = input.readRemainingBytes()
         #expect(tail.byteCount == 9 - count)
         #expect(input.remaining == 0)
-        try input.finish()
+        try input.readEnd()
     }
 
     /// The variable-length API: a ULEB128 length, then the bytes, both ways.
     @Test(arguments: [0, 1, 127, 128, 255, 256, 16_384]) static func Prefixed(_ length: Int) throws {
         let payload: [UInt8] = (0 ..< length).map { UInt8.init(truncatingIfNeeded: $0) }
-        let bytes: [UInt8] = .init(capacity: ULEB128.size(UInt.init(length)) + length) {
+        let bytes: [UInt8] = .init(capacity: ULEB128.size(length) + length) {
             $0.append(prefixed: payload.span.bytes)
         }
-        #expect(bytes.count == ULEB128.size(UInt.init(length)) + length)
+        #expect(bytes.count == ULEB128.size(length) + length)
 
         var input: TransferReader = .init(bytes.span.bytes)
-        let span: RawSpan = try input.takePrefixed()
-        try input.finish()
+        let span: RawSpan = try input.readPrefixedBytes()
+        try input.readEnd()
         #expect(span.withUnsafeBytes { [UInt8].init($0) } == payload)
+    }
+
+    /// One byte, a little-endian integer and a value, each read as the writer appended it, and
+    /// the end of the input read last; a byte past the end is refused as an integer is.
+    @Test static func Reads() throws {
+        let bytes: [UInt8] = .init(capacity: 16) {
+            $0.append(7)
+            $0.append(littleEndian: 0x0102_0304 as UInt32)
+            $0.append(element: -2 as Int16)
+            $0.append(uleb128: 1)
+            $0.append(0xaa)
+        }
+        #expect(bytes == [7, 4, 3, 2, 1, 0xfe, 0xff, 1, 0xaa])
+
+        var input: TransferReader = .init(bytes.span.bytes)
+        #expect(try input.readByte() == 7)
+        #expect(try input.read(littleEndian: UInt32.self) == 0x0102_0304)
+        let value: Int16 = try input.read()
+        #expect(value == -2)
+        #expect(try input.readCount() == 1)
+        #expect(try input.readByte() == 0xaa)
+        try input.readEnd()
+        let error: TransferError = try #require(throws: TransferError.self) { try input.readByte() }
+        #expect(HostileInput.Expectation.init(error.kind) == .expected(1, encountered: 0))
     }
 
     /// Several values read in order from one buffer, as a composite reads its fields.
@@ -70,7 +94,7 @@ import Testing
         #expect(try String.init(transferring: &input) == "abc")
         #expect(try [Int8].init(transferring: &input) == [1, 2])
         #expect(try String?.init(transferring: &input) == nil)
-        try input.finish()
+        try input.readEnd()
     }
 
     @Test(

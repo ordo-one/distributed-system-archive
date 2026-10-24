@@ -8,7 +8,7 @@ extension Bool: Transferable {
         output.append(self ? 1 : 0)
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self = false
         case 1: self = true
         case let code: throw .init(.discriminant(.init(code)))

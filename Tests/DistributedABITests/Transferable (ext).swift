@@ -5,7 +5,7 @@ extension Transferable {
     static func decode(_ bytes: [UInt8]) throws(TransferError) -> Self {
         var input: TransferReader = .init(bytes.span.bytes)
         let value: Self = try .init(transferring: &input)
-        try input.finish()
+        try input.readEnd()
         return value
     }
 }

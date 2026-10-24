@@ -206,6 +206,11 @@ import Testing
         let bytes: [UInt8] = .init(capacity: 10) { $0.append(uleb128: value) }
         #expect(bytes == expected)
         #expect(ULEB128.size(value) == expected.count)
+        // a count or a length, which is an `Int`, takes the same bytes
+        if  let count: Int = .init(exactly: value) {
+            #expect([UInt8].init(capacity: 10) { $0.append(uleb128: count) } == expected)
+            #expect(ULEB128.size(count) == expected.count)
+        }
     }
 
     /// A string, a substring and a contiguous value at the lengths where their ULEB128 length
@@ -251,8 +256,8 @@ extension WireFormat {
         #expect(bytes == expected + [0xa5])
         var input: TransferReader = .init(bytes.span.bytes)
         let decoded: Value = try .init(transferring: &input)
-        let next: UInt8 = try input.take(UInt8.self)
-        try input.finish()
+        let next: UInt8 = try input.readByte()
+        try input.readEnd()
         #expect(decoded == value)
         #expect(next == 0xa5)
     }

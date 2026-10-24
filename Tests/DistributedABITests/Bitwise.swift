@@ -385,7 +385,7 @@ extension Bitwise {
         var input: TransferReader = .init(bytes.span.bytes)
         do {
             _ = try Value.init(transferring: &input)
-            try input.finish()
+            try input.readEnd()
             return nil
         } catch {
             return .init(kind: .init(error.kind), remaining: input.remaining)

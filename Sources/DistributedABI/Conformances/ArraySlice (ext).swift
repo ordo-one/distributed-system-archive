@@ -3,7 +3,7 @@ extension ArraySlice: Transferable where Element: Transferable {
     @inlinable public var transferSize: Int {
         // elements of a fixed size need only the count, as an array’s do
         if  let size: Int = Element.transferLayout?.size {
-            return ULEB128.size(UInt.init(self.count)) + self.count * size
+            return ULEB128.size(self.count) + self.count * size
         }
         return self.span.arrayTransferSize
     }
@@ -16,7 +16,7 @@ extension ArraySlice: Transferable where Element: Transferable {
     /// it lies, where a loop over the span copies an element that holds a reference across its
     /// write.
     @inlinable public func transfer(into output: inout TransferWriter) {
-        output.append(uleb128: UInt.init(self.count))
+        output.append(uleb128: self.count)
         if  _isConcrete(Element.self), case nil = Element.bitwiseTransfer {
             for element: Element in self {
                 output.append(element: element)

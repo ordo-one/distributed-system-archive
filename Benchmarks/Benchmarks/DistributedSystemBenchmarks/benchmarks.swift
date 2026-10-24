@@ -169,7 +169,7 @@ let benchmarks: @Sendable () -> () = {
         do {
             var input: TransferReader = .init(output.bytes)
             decoded = try .init(transferring: &input)
-            try input.finish()
+            try input.readEnd()
         }
         _ = output.finalize(for: frame)
         return decoded

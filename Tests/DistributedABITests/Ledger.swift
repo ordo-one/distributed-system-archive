@@ -6,7 +6,7 @@ import DistributedABI
 /// It reads and writes each key and each value on its own: the wire form interleaves them, and
 /// it keeps them in two arrays, so no run of its storage is the bytes of its entries, and the
 /// helpers that copy a collection’s storage at once, `TransferWriter.append(elements:)` and
-/// `TransferReader.takeElements(_:into:)`, do not apply.
+/// `TransferReader.readElements(count:into:)`, do not apply.
 struct Ledger<Key, Value> {
     let keys: [Key]
     let values: [Value]
@@ -28,27 +28,27 @@ extension Ledger: ExpressibleByDictionaryLiteral {
 }
 extension Ledger: Transferable where Key: Transferable, Value: Transferable {
     var transferSize: Int {
-        zip(self.keys, self.values).reduce(ULEB128.size(UInt.init(self.keys.count))) {
+        zip(self.keys, self.values).reduce(ULEB128.size(self.keys.count)) {
             $0 + $1.0.transferSize + $1.1.transferSize
         }
     }
 
     func transfer(into output: inout TransferWriter) {
-        output.append(uleb128: UInt.init(self.keys.count))
+        output.append(uleb128: self.keys.count)
         for (key, value): (Key, Value) in zip(self.keys, self.values) {
             output.append(element: key)
             output.append(element: value)
         }
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        let count: Int = try input.takeCount(keys: Key.self, values: Value.self)
+        let count: Int = try input.readCount(keys: Key.self, values: Value.self)
         var keys: [Key] = []
         var values: [Value] = []
         keys.reserveCapacity(count)
         values.reserveCapacity(count)
         for _: Int in 0 ..< count {
-            keys.append(try input.takeElement(Key.self))
-            values.append(try input.takeElement(Value.self))
+            keys.append(try input.read(Key.self))
+            values.append(try input.read(Value.self))
         }
         self.init(keys: keys, values: values)
     }

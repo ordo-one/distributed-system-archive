@@ -3,7 +3,7 @@ extension ContiguousArray: Transferable where Element: Transferable {
     @inlinable public var transferSize: Int {
         // elements of a fixed size need only the count, as an array’s do
         if  let size: Int = Element.transferLayout?.size {
-            return ULEB128.size(UInt.init(self.count)) + self.count * size
+            return ULEB128.size(self.count) + self.count * size
         }
         return self.span.arrayTransferSize
     }
@@ -16,7 +16,7 @@ extension ContiguousArray: Transferable where Element: Transferable {
     /// it lies, where a loop over the span copies an element that holds a reference across its
     /// write.
     @inlinable public func transfer(into output: inout TransferWriter) {
-        output.append(uleb128: UInt.init(self.count))
+        output.append(uleb128: self.count)
         if  _isConcrete(Element.self), case nil = Element.bitwiseTransfer {
             for element: Element in self {
                 output.append(element: element)
@@ -33,7 +33,7 @@ extension ContiguousArray: Transferable where Element: Transferable {
             try self.init(transferringElements: &input)
             return
         }
-        let count: Int = try input.takeCount(of: Element.self)
+        let count: Int = try input.readCount(of: Element.self)
         if  count == 0 {
             self.init()
             return
@@ -44,7 +44,7 @@ extension ContiguousArray: Transferable where Element: Transferable {
             try input.checkDiscriminants(count, below: cases)
         }
         // cannot overflow, since that many elements fit in the bytes remaining
-        let bytes: RawSpan = input.take(holding: count &* size)
+        let bytes: RawSpan = input.readBytes(holding: count &* size)
         if  _isConcrete(Element.self) {
             // specialized for the element type, reserving inline with the storage type known,
             // as a read of one element at a time does: the initializer below allocates through

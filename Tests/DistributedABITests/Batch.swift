@@ -42,17 +42,17 @@ extension Batch: Transferable where Element: Transferable {
     /// Its elements lie in contiguous storage, so it writes them from a span of it, with one
     /// copy when their type states that it is stored as its transfer bytes.
     func transfer(into output: inout TransferWriter) {
-        output.append(uleb128: UInt.init(self.elements.count))
+        output.append(uleb128: self.elements.count)
         output.append(elements: self.elements.span)
     }
     /// It reads its elements into the storage an output span lends, with one copy when their
     /// type states that it is stored as its transfer bytes.
     init(transferring input: inout TransferReader) throws(TransferError) {
-        let count: Int = try input.takeCount(of: Element.self)
+        let count: Int = try input.readCount(of: Element.self)
         var elements: [Element] = []
         try elements.append(addingCapacity: count) {
             (output: inout OutputSpan<Element>) throws(TransferError) in
-            try input.takeElements(count, into: &output)
+            try input.readElements(count: count, into: &output)
         }
         self.init(elements: elements)
     }

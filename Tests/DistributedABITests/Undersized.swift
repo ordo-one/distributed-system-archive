@@ -18,6 +18,6 @@ extension Undersized {
         output.append(0)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(byte: try input.take(UInt8.self))
+        self.init(byte: try input.readByte())
     }
 }

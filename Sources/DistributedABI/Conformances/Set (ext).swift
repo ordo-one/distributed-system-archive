@@ -2,7 +2,7 @@ extension Set: Transferable where Element: Transferable {
     /// A set travels as an ``Swift/Array`` of its elements in iteration order; an element that
     /// repeats an earlier one is a ``TransferError/Kind/duplicate(_:)`` error.
     @inlinable public var transferSize: Int {
-        let header: Int = ULEB128.size(UInt.init(self.count))
+        let header: Int = ULEB128.size(self.count)
         if  let size: Int = Element.transferLayout?.size {
             return header + self.count * size
         }
@@ -17,16 +17,16 @@ extension Set: Transferable where Element: Transferable {
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
-        output.append(uleb128: UInt.init(self.count))
+        output.append(uleb128: self.count)
         for element: Element in self {
             output.append(element: element)
         }
     }
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        let count: Int = try input.takeCount(of: Element.self)
+        let count: Int = try input.readCount(of: Element.self)
         self.init(minimumCapacity: count)
         for i: Int in 0 ..< count {
-            guard case (inserted: true, _) = self.insert(try input.takeElement(Element.self)) else {
+            guard case (inserted: true, _) = self.insert(try input.read(Element.self)) else {
                 throw .init(.duplicate(i))
             }
         }

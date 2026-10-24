@@ -88,7 +88,7 @@ extension OrderTypeLike: Transferable {
         }
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self = .market
         case 1: self = .limit
         case 2: self = .stopMarket(stopPrice: try .init(transferring: &input))
@@ -354,7 +354,7 @@ extension PropertyValueLike: Transferable {
         }
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        switch try input.take(UInt8.self) {
+        switch try input.readByte() {
         case 0: self = .integer(try .init(transferring: &input))
         case 1: self = .decimal(try .init(transferring: &input))
         case 2: self = .boolean(try .init(transferring: &input))
@@ -538,7 +538,7 @@ enum PayloadFixtures {
         do {
             var input: TransferReader = .init(output.bytes)
             let value: Message = try .init(transferring: &input)
-            try input.finish()
+            try input.readEnd()
             blackHole(value)
         }
         _ = output.finalize(for: frame)
@@ -628,7 +628,7 @@ func debugRoundtripOK<Message>(_ message: Message) -> Bool
         var input: TransferReader = .init(twice.span.bytes)
         let first: Message = try .init(transferring: &input)
         let second: Message = try .init(transferring: &input)
-        try input.finish()
+        try input.readEnd()
         return first == message && second == message
     } catch {
         return false

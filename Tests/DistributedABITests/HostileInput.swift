@@ -125,7 +125,7 @@ import Testing
         var input: TransferReader = .init(bytes.span.bytes)
         let error: TransferError?
         do {
-            _ = try input.take(count)
+            _ = try input.readBytes(count: count)
             error = nil
         } catch let refusal {
             error = refusal
