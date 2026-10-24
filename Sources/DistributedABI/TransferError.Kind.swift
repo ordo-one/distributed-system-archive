@@ -1,7 +1,8 @@
 extension TransferError {
-    /// What the input held that a read refused, or the conformer’s own error. Each case
-    /// carries where the read stood, as the bytes remaining or a position, so that a refusal
-    /// can be found in the frame.
+    /// What the input held that a read refused, or the conformer’s own error. Every case but
+    /// two carries where the read stood, as the bytes remaining or a position, so that a
+    /// refusal can be found in the frame; ``invalidDiscriminant(_:)`` carries the value read
+    /// instead, and ``payload(_:)`` the conformer’s error as it is.
     @frozen public enum Kind: Sendable {
         /// Too few bytes: a read needed `needed` and `remaining` were left.
         case truncated(needed: Int, remaining: Int)
