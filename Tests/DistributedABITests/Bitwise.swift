@@ -197,8 +197,8 @@ import Testing
     /// An enumeration with an integer raw value, and `Bool`, are not stored as every byte
     /// they could read, so an array of them refuses a byte of no case where it stands.
     @Test static func EnumerationsRefuseEachElement() {
-        #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .init(kind: .discriminant(5), remaining: 0))
-        #expect(Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(kind: .discriminant(2), remaining: 2))
+        #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .init(kind: .invalidDiscriminant(5), remaining: 0))
+        #expect(Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(kind: .invalidDiscriminant(2), remaining: 2))
     }
 
     /// Arrays of `Bool` and of an enumeration that states its discriminants write the bytes of a
@@ -276,7 +276,7 @@ import Testing
                         == Self.refusal(inline, as: InlineArray<5, UnstatedFlag>.self)
                 )
             }
-            #expect(Self.refusal(bytes, as: [Bool].self) == .init(kind: .discriminant(.init(bad)), remaining: 4 - position))
+            #expect(Self.refusal(bytes, as: [Bool].self) == .init(kind: .invalidDiscriminant(.init(bad)), remaining: 4 - position))
         }
     }
 
@@ -333,7 +333,7 @@ import Testing
         let flags: Batch<Bool> = [true, false, true]
         #expect([UInt8].init(transferring: flags) == [3, 1, 0, 1])
         #expect(try Batch<Bool>.decode([3, 1, 0, 1]) == flags)
-        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .init(kind: .discriminant(2), remaining: 1))
+        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .init(kind: .invalidDiscriminant(2), remaining: 1))
 
         for bytes: [UInt8] in [[3, 0, 1, 2], [3, 0, 3, 2], [3, 0, 1], [3, 0xff], [2], []] {
             #expect(Self.refusal(bytes, as: Batch<Mark>.self) == Self.refusal(bytes, as: [UnstatedMark].self))
@@ -369,7 +369,7 @@ import Testing
         let marks: [WideMark] = [.init(1), .init(0)]
         #expect([UInt8].init(transferring: marks) == [2, 1, 0])
         #expect(try [WideMark].decode([2, 1, 0]) == marks)
-        #expect(Self.refusal([2, 1, 2], as: [WideMark].self) == .init(kind: .discriminant(2), remaining: 0))
+        #expect(Self.refusal([2, 1, 2], as: [WideMark].self) == .init(kind: .invalidDiscriminant(2), remaining: 0))
     }
 }
 extension Bitwise {

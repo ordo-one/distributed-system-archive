@@ -23,7 +23,7 @@ enum Tally: UInt8, CaseIterable, Equatable, Transferable {
         let byte: UInt8 = try input.readByte()
         guard
         let value: Self = .init(rawValue: byte) else {
-            throw .init(.discriminant(.init(byte)))
+            throw .init(.invalidDiscriminant(.init(byte)))
         }
         self = value
     }
@@ -48,7 +48,7 @@ enum UnstatedTally: UInt8, CaseIterable, Equatable, Transferable {
         let byte: UInt8 = try input.readByte()
         guard
         let value: Self = .init(rawValue: byte) else {
-            throw .init(.discriminant(.init(byte)))
+            throw .init(.invalidDiscriminant(.init(byte)))
         }
         self = value
     }

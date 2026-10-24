@@ -22,7 +22,7 @@ extension Result: Transferable where Success: Transferable, Failure: Transferabl
         switch try input.readByte() {
         case 0: self = .success(try .init(transferring: &input))
         case 1: self = .failure(try .init(transferring: &input))
-        case let code: throw .init(.discriminant(.init(code)))
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }

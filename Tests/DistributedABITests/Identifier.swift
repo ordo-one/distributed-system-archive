@@ -21,13 +21,19 @@ extension Identifier {
     func withTransferBytes<Result>(_ body: (RawSpan) throws -> Result) rethrows -> Result {
         try body(self.bytes.span.bytes)
     }
-    /// Refuses a wrong count with an error, so a library that hands it the wrong bytes fails
-    /// a test instead of trapping in ``init(bytes:)``.
+    /// Refuses a wrong count with an error of its own, so a library that hands it the wrong
+    /// bytes fails a test instead of trapping in ``init(bytes:)``.
     init(transferBytes: RawSpan) throws(TransferError) {
         guard transferBytes.byteCount == 8 else {
-            throw .init(.expected(8, encountered: transferBytes.byteCount))
+            throw .payload(ByteCount.init(count: transferBytes.byteCount))
         }
         self.init(bytes: transferBytes.withUnsafeBytes { [UInt8].init($0) })
+    }
+}
+extension Identifier {
+    /// The byte count of an identifier handed anything other than 8 bytes.
+    struct ByteCount: Error {
+        let count: Int
     }
 }
 extension Identifier: Fuzzable {

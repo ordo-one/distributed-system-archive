@@ -15,7 +15,7 @@ extension Marker {
     init(transferring input: inout TransferReader) throws(TransferError) {
         switch try input.readByte() {
         case 0: self.init()
-        case let code: throw .init(.discriminant(.init(code)))
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }

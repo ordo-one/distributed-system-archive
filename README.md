@@ -55,6 +55,8 @@ Nothing around a part marks where it ends, so a composite must read exactly the 
 
 The reader is a borrowed cursor. It is `~Escapable`, so neither the reader nor the spans it hands out can outlive the buffer they read, and the compiler refuses code that tries; a value that keeps bytes copies them. Running out of bytes, meeting a malformed number, or finding a discriminant out of range throws a `TransferError` instead of trapping, and a count or length that the bytes remaining could not hold is refused before anything is reserved: every element takes at least one byte on the wire, and its fixed size when its type has one. That bounds the number of elements a reader reserves room for, not the memory they take once decoded, which for strings and collections can exceed their bytes on the wire.
 
+The error’s kind names the refusal and where the read stood: `truncated(needed:remaining:)` for too few bytes, `trailingBytes(remaining:)` for bytes after the last value, `excessiveCount(_:remaining:)` for a count or length the bytes remaining cannot hold, `malformedULEB128(remaining:)` for a number not in canonical form, `invalidDiscriminant(_:)` for a tag or raw value with no case, `duplicate(at:)` for a repeated set element or dictionary key, and `payload(_:)` for a conformer’s own error.
+
 
 ## How a contiguous type gets its defaults
 

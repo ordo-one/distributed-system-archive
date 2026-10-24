@@ -1,7 +1,7 @@
 extension Dictionary: Transferable where Key: Transferable, Value: Transferable {
     /// A dictionary travels as a ULEB128 count, then each key followed by its value, in
     /// iteration order, each of which delimits itself. A key that repeats an earlier one is a
-    /// ``TransferError/Kind/duplicate(_:)`` error.
+    /// ``TransferError/Kind/duplicate(at:)`` error.
     ///
     /// Keys or values of a fixed size are sized from the count alone, and the others are
     /// visited through ``Swift/Dictionary/keys`` or ``Swift/Dictionary/values``, never as
@@ -40,7 +40,7 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
             let key: Key = try input.read(Key.self)
             let value: Value = try input.read(Value.self)
             guard case nil = self.updateValue(value, forKey: key) else {
-                throw .init(.duplicate(i))
+                throw .init(.duplicate(at: i))
             }
         }
     }

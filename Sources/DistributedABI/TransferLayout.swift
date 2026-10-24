@@ -57,7 +57,7 @@
     /// collection checks that the type’s memory is one byte, its stride one and the count from
     /// 1 to 256, and moves each value through its own conformance when any of them fails; it
     /// refuses the first byte at or above the count with the
-    /// ``TransferError/Kind/discriminant(_:)`` error a read of one value at a time
+    /// ``TransferError/Kind/invalidDiscriminant(_:)`` error a read of one value at a time
     /// reports, and leaves the reader just past it, where that read leaves it. It cannot check
     /// the rest, and nothing reports a wrong statement: a byte out of range is refused only
     /// from the stated count up, so a count above the number of cases accepts a byte of no

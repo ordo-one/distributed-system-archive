@@ -106,7 +106,7 @@ extension Transferable where Self: RawRepresentable, RawValue: Transferable & Fi
     /// A value with an integer raw value travels as its raw value, at its raw value’s size, one
     /// value at a time: an enumeration is stored as its case index, not its raw value, so its
     /// layout is never ``TransferLayout/bitwise(size:)``. A raw value with no case is a
-    /// ``TransferError/Kind/discriminant(_:)`` error.
+    /// ``TransferError/Kind/invalidDiscriminant(_:)`` error.
     @inlinable public static var transferLayout: TransferLayout? {
         RawValue.transferLayout.map { .fixed(size: $0.size) }
     }
@@ -123,7 +123,7 @@ extension Transferable where Self: RawRepresentable, RawValue: Transferable & Fi
             // the byte it was sent as
             let bits: UInt128 = .init(truncatingIfNeeded: rawValue)
             let mask: UInt128 = RawValue.bitWidth < 128 ? (1 << RawValue.bitWidth) - 1 : .max
-            throw .init(.discriminant(bits & mask))
+            throw .init(.invalidDiscriminant(bits & mask))
         }
         self = value
     }

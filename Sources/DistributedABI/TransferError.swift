@@ -17,19 +17,17 @@ extension TransferError {
 extension TransferError: CustomStringConvertible {
     public var description: String {
         switch self.kind {
-        case .expected(let expected, encountered: let encountered):
-            if  expected == 0 {
-                "expected end of input, but \(encountered) byte(s) remain"
-            } else {
-                "expected \(expected) byte(s), but \(encountered) remain"
-            }
-        case .count(let count, remaining: let remaining):
+        case .truncated(needed: let needed, remaining: let remaining):
+            "expected \(needed) byte(s), but \(remaining) remain"
+        case .trailingBytes(remaining: let remaining):
+            "expected end of input, but \(remaining) byte(s) remain"
+        case .excessiveCount(let count, remaining: let remaining):
             "count or length \(count) exceeds the \(remaining) byte(s) remaining"
-        case .malformed(remaining: let remaining):
+        case .malformedULEB128(remaining: let remaining):
             "malformed ULEB128 number, with \(remaining) byte(s) remaining"
-        case .discriminant(let code):
+        case .invalidDiscriminant(let code):
             "invalid discriminant (\(code))"
-        case .duplicate(let position):
+        case .duplicate(at: let position):
             "duplicate element at position [\(position)]"
         case .payload(let error):
             "\(error)"

@@ -3,7 +3,7 @@ extension InlineArray: Transferable where Element: Transferable {
     /// itself, with no count in front of them, since the count is part of its type. An inline
     /// array of count 0 (`InlineArray<0, Element>`) writes one zero byte instead, since every
     /// value takes at least one, and any other byte in its place is a
-    /// ``TransferError/Kind/discriminant(_:)`` error.
+    /// ``TransferError/Kind/invalidDiscriminant(_:)`` error.
     ///
     /// The layout is a fixed size of one byte when the count is zero. Otherwise it is the count
     /// times the element’s size, when the element states a layout and the product fits in
@@ -63,7 +63,7 @@ extension InlineArray: Transferable where Element: Transferable {
         if  count == 0 {
             switch try input.readByte() {
             case 0: break
-            case let code: throw .init(.discriminant(.init(code)))
+            case let code: throw .init(.invalidDiscriminant(.init(code)))
             }
         } else if case _? = Element.bitwiseTransfer {
             self = try .init { (output: inout OutputSpan<Element>) throws(TransferError) in

@@ -1,11 +1,11 @@
 extension Span where Element: Transferable {
-    /// The number of bytes these elements take in the wire form of an array: a ULEB128 count,
-    /// then the elements one after another, each of which delimits itself. The count is
-    /// included, so this is the ``Transferable/transferSize`` of an ``Swift/Array`` with the
-    /// same elements, and a collection of one’s own that writes an array’s wire form can return
-    /// it from its own `transferSize`, over a span of its elements. It is not the size of an
-    /// inline array, which writes no count. Elements whose type states a layout are sized from the count
-    /// alone, without visiting any of them.
+    /// The number of bytes these elements take in the wire form of an array: a ULEB128 count, then
+    /// the elements one after another, each of which delimits itself. The count is included, so
+    /// this is the ``Transferable/transferSize`` of an ``Swift/Array`` with the same elements, and
+    /// a collection of one’s own that writes an array’s wire form can return it from its own
+    /// `transferSize`, over a span of its elements. It is not the size of an inline array, which
+    /// writes no count. Elements whose type states a layout are sized from the count alone, without
+    /// visiting any of them.
     ///
     /// Indexing the span lends each element where it lies. Where this body is specialized for
     /// the element type, as it is in a client that names the type, the optimizer can size the

@@ -22,8 +22,9 @@ extension TransferReader {
     /// Checks the next `count` bytes, which the bytes remaining hold, against a number of
     /// discriminants, without consuming them. At the first byte that is `cases` or more, it
     /// consumes the bytes up to and including that one, as a read of one value at a time
-    /// would, and refuses it with the ``TransferError/Kind/discriminant(_:)`` error that read
-    /// reports, so that the reader stands where the read of one value at a time leaves it.
+    /// would, and refuses it with the ``TransferError/Kind/invalidDiscriminant(_:)`` error
+    /// that read reports, so that the reader stands where the read of one value at a time
+    /// leaves it.
     @inlinable mutating func checkDiscriminants(_ count: Int, below cases: Int) throws(TransferError) {
         // cannot overflow, since `count` fits in the bytes remaining
         let next: RawSpan = self.bytes.extracting(self.index ..< self.index &+ count)
@@ -33,6 +34,6 @@ extension TransferReader {
         }
         let byte: UInt8 = next.load(fromByteOffset: offset, as: UInt8.self)
         self.index &+= offset &+ 1
-        throw .init(.discriminant(.init(byte)))
+        throw .init(.invalidDiscriminant(.init(byte)))
     }
 }

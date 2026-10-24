@@ -15,7 +15,7 @@ extension Optional: Transferable where Wrapped: Transferable {
         switch try input.readByte() {
         case 0: self = nil
         case 1: self = try Wrapped.init(transferring: &input)
-        case let code: throw .init(.discriminant(.init(code)))
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }

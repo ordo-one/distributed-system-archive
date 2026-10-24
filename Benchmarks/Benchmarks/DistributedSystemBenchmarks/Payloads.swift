@@ -93,7 +93,7 @@ extension OrderTypeLike: Transferable {
         case 1: self = .limit
         case 2: self = .stopMarket(stopPrice: try .init(transferring: &input))
         case 3: self = .peg(offsetTicks: try .init(transferring: &input))
-        case let code: throw .init(.discriminant(.init(code)))
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }
@@ -361,7 +361,7 @@ extension PropertyValueLike: Transferable {
         case 3: self = .text(try .init(transferring: &input))
         case 4: self = .timestamp(try .init(transferring: &input))
         case 5: self = .instrument(try .init(transferring: &input))
-        case let code: throw .init(.discriminant(.init(code)))
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }

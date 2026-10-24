@@ -22,7 +22,7 @@ extension TransferReader {
     @_lifetime(copy self)
     @inlinable public mutating func readBytes(count: Int) throws(TransferError) -> RawSpan {
         guard count >= 0, count <= self.remaining else {
-            throw .init(.expected(count, encountered: self.remaining))
+            throw .init(.truncated(needed: count, remaining: self.remaining))
         }
         let span: RawSpan = self.bytes.extracting(self.index ..< self.index + count)
         self.index += count
@@ -59,7 +59,7 @@ extension TransferReader {
     @inlinable @inline(always) public mutating func readPrefixedBytes() throws(TransferError) -> RawSpan {
         let length: Int = try self.readULEB128Short()
         guard length <= self.remaining else {
-            throw .init(.count(length, remaining: self.remaining))
+            throw .init(.excessiveCount(length, remaining: self.remaining))
         }
         // cannot overflow, since `length` fits in the bytes remaining
         let span: RawSpan = self.bytes.extracting(self.index ..< self.index &+ length)
@@ -86,7 +86,7 @@ extension TransferReader {
     @inlinable @inline(always) mutating func readUTF8Bytes() throws(TransferError) -> RawSpan {
         let length: Int = try self.readULEB128()
         guard length <= self.remaining else {
-            throw .init(.count(length, remaining: self.remaining))
+            throw .init(.excessiveCount(length, remaining: self.remaining))
         }
         return try self.readBytes(count: length)
     }
@@ -97,7 +97,7 @@ extension TransferReader {
     @inlinable @inline(always) public mutating func readCount() throws(TransferError) -> Int {
         let count: Int = try self.readULEB128()
         guard count <= self.remaining else {
-            throw .init(.count(count, remaining: self.remaining))
+            throw .init(.excessiveCount(count, remaining: self.remaining))
         }
         return count
     }
@@ -106,7 +106,7 @@ extension TransferReader {
     /// another value’s own.
     @inlinable public mutating func readByte() throws(TransferError) -> UInt8 {
         guard self.index < self.bytes.byteCount else {
-            throw .init(.expected(1, encountered: 0))
+            throw .init(.truncated(needed: 1, remaining: 0))
         }
         let byte: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
         self.index &+= 1
@@ -121,7 +121,7 @@ extension TransferReader {
     ) throws(TransferError) -> Integer where Integer: FixedWidthInteger & ConvertibleFromBytes {
         let size: Int = MemoryLayout<Integer>.size
         guard size <= self.remaining else {
-            throw .init(.expected(size, encountered: self.remaining))
+            throw .init(.truncated(needed: size, remaining: self.remaining))
         }
         let value: Integer = self.bytes.load(fromByteOffset: self.index, as: Integer.self)
         // cannot overflow, since `size` fits in the bytes remaining; wrapping, so that
@@ -166,10 +166,11 @@ extension TransferReader {
     /// ``TransferLayout/discriminant(count:)``, its size is the size and the stride of its
     /// memory, which holds no strong, weak or unowned reference, and the bytes remaining hold
     /// all `count` elements, their bytes are copied into `output` at once, each byte of a
-    /// discriminant checked where it lies first; otherwise each element reads itself. Either way, the bytes are refused exactly where a read of one
-    /// element at a time refuses them, with the same error and the reader at the same
-    /// position. `output` must have room for `count` more elements. When this throws, `output`
-    /// may hold some of the elements read before the error.
+    /// discriminant checked where it lies first; otherwise each element reads itself. Either
+    /// way, the bytes are refused exactly where a read of one element at a time refuses them,
+    /// with the same error and the reader at the same position. `output` must have room for
+    /// `count` more elements. When this throws, `output` may hold some of the elements read
+    /// before the error.
     ///
     /// A collection of one’s own whose elements lie in contiguous storage reads its count
     /// through ``readCount(of:)``, which refuses a count the bytes remaining could not hold,
@@ -199,7 +200,7 @@ extension TransferReader {
     /// read last, after the values of a frame.
     @inlinable public func readEnd() throws(TransferError) {
         guard self.index == self.bytes.byteCount else {
-            throw .init(.expected(0, encountered: self.remaining))
+            throw .init(.trailingBytes(remaining: self.remaining))
         }
     }
 }
@@ -244,20 +245,20 @@ extension TransferReader {
         var shift: Int = 0
         while true {
             guard self.index < self.bytes.byteCount else {
-                throw .init(.expected(1, encountered: 0))
+                throw .init(.truncated(needed: 1, remaining: 0))
             }
             let byte: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
             self.index += 1
 
             let bits: UInt = .init(byte & 0x7f)
             guard shift < UInt.bitWidth, (bits &<< shift) &>> shift == bits else {
-                throw .init(.malformed(remaining: self.remaining))
+                throw .init(.malformedULEB128(remaining: self.remaining))
             }
             value |= bits &<< shift
 
             if  byte & 0x80 == 0 {
                 guard byte != 0 || shift == 0 else {
-                    throw .init(.malformed(remaining: self.remaining))
+                    throw .init(.malformedULEB128(remaining: self.remaining))
                 }
                 break
             }
@@ -265,32 +266,32 @@ extension TransferReader {
         }
         guard
         let value: Int = .init(exactly: value) else {
-            throw .init(.malformed(remaining: self.remaining))
+            throw .init(.malformedULEB128(remaining: self.remaining))
         }
         return value
     }
 }
 extension TransferReader {
     /// A ULEB128 count of elements of one type, as an array writes it, refused with
-    /// ``TransferError/Kind/count(_:remaining:)`` when that many elements cannot fit in the
-    /// bytes remaining: one byte each at least, and their size each when their type states a
-    /// layout. A collection of one’s own reads its count through this before it reserves
-    /// room for its elements, so that a hostile count never reserves room for more elements
-    /// than the bytes present could hold, and then reads each element through ``read(_:)``, or
-    /// all of them through ``readElements(count:into:)``.
+    /// ``TransferError/Kind/excessiveCount(_:remaining:)`` when that many elements cannot fit
+    /// in the bytes remaining: one byte each at least, and their size each when their type
+    /// states a layout. A collection of one’s own reads its count through this before it
+    /// reserves room for its elements, so that a hostile count never reserves room for more
+    /// elements than the bytes present could hold, and then reads each element through
+    /// ``read(_:)``, or all of them through ``readElements(count:into:)``.
     @inlinable public mutating func readCount<Element>(
         of _: Element.Type
     ) throws(TransferError) -> Int where Element: Transferable {
         let count: Int = try self.readCount()
         if  let size: Int = Element.transferLayout?.size, size > 0, count > self.remaining / size {
-            throw .init(.count(count, remaining: self.remaining))
+            throw .init(.excessiveCount(count, remaining: self.remaining))
         }
         return count
     }
 
     /// A ULEB128 count of entries, as a dictionary writes it, refused with
-    /// ``TransferError/Kind/count(_:remaining:)`` when that many entries cannot fit in the
-    /// bytes remaining: a key and a value each take one byte at least, and their size each
+    /// ``TransferError/Kind/excessiveCount(_:remaining:)`` when that many entries cannot fit
+    /// in the bytes remaining: a key and a value each take one byte at least, and their size each
     /// when their type states a layout. An entry whose size overflows `Int` cannot fit either,
     /// and a count of zero is never refused, since it has no entry to fit. A keyed collection
     /// of one’s own reads its count through this before it reserves room for its entries, and
@@ -306,7 +307,7 @@ extension TransferReader {
         let size: (partialValue: Int, overflow: Bool) = (Key.transferLayout?.size ?? 1)
             .addingReportingOverflow(Value.transferLayout?.size ?? 1)
         if  size.overflow || size.partialValue > 1 && count > self.remaining / size.partialValue {
-            throw .init(.count(count, remaining: self.remaining))
+            throw .init(.excessiveCount(count, remaining: self.remaining))
         }
         return count
     }

@@ -76,7 +76,7 @@ import Testing
         #expect(try input.readByte() == 0xaa)
         try input.readEnd()
         let error: TransferError = try #require(throws: TransferError.self) { try input.readByte() }
-        #expect(HostileInput.Expectation.init(error.kind) == .expected(1, encountered: 0))
+        #expect(HostileInput.Expectation.init(error.kind) == .truncated(needed: 1, remaining: 0))
     }
 
     /// Several values read in order from one buffer, as a composite reads its fields.
@@ -99,12 +99,12 @@ import Testing
 
     @Test(
         arguments: [
-            (.expected(8, encountered: 3), "expected 8 byte(s), but 3 remain"),
-            (.expected(0, encountered: 2), "expected end of input, but 2 byte(s) remain"),
-            (.count(9, remaining: 1), "count or length 9 exceeds the 1 byte(s) remaining"),
-            (.malformed(remaining: 0), "malformed ULEB128 number, with 0 byte(s) remaining"),
-            (.discriminant(2), "invalid discriminant (2)"),
-            (.duplicate(3), "duplicate element at position [3]"),
+            (.truncated(needed: 8, remaining: 3), "expected 8 byte(s), but 3 remain"),
+            (.trailingBytes(remaining: 2), "expected end of input, but 2 byte(s) remain"),
+            (.excessiveCount(9, remaining: 1), "count or length 9 exceeds the 1 byte(s) remaining"),
+            (.malformedULEB128(remaining: 0), "malformed ULEB128 number, with 0 byte(s) remaining"),
+            (.invalidDiscriminant(2), "invalid discriminant (2)"),
+            (.duplicate(at: 3), "duplicate element at position [3]"),
             (.payload(Row.Refusal.empty), "empty"),
         ] as [(TransferError.Kind, String)]
     ) static func Descriptions(_ kind: TransferError.Kind, _ expected: String) {
