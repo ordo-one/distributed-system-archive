@@ -17,14 +17,13 @@ public protocol ContiguousTransferable: Transferable {
     init(transferBytes: RawSpan) throws(TransferError)
 }
 extension ContiguousTransferable {
+    /// The fixed size when the type states one, without lending the bytes; otherwise the byte
+    /// count of the lent bytes and of the ULEB128 length in front of them.
     @inlinable public var transferSize: Int {
-        self.withTransferBytes {
-            if  case nil = Self.fixedTransferSize {
-                ULEB128.size(UInt.init($0.byteCount)) + $0.byteCount
-            } else {
-                $0.byteCount
-            }
+        if  let size: Int = Self.fixedTransferSize {
+            return size
         }
+        return self.withTransferBytes { ULEB128.size(UInt.init($0.byteCount)) + $0.byteCount }
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {

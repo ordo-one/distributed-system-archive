@@ -2,10 +2,28 @@ extension Dictionary: Transferable where Key: Transferable, Value: Transferable 
     /// A dictionary travels as a ULEB128 count, then each key followed by its value, in
     /// iteration order, each of which delimits itself. A key that repeats an earlier one is a
     /// ``TransferError/Kind/duplicate(_:)`` error.
+    ///
+    /// Keys or values of a fixed size are sized from the count alone, and the others are
+    /// visited through ``Swift/Dictionary/keys`` or ``Swift/Dictionary/values``, never as
+    /// key-value pairs: a pair is a tuple whose type metadata an unspecialized loop looks up
+    /// for every entry.
     @inlinable public var transferSize: Int {
-        self.reduce(ULEB128.size(UInt.init(self.count))) {
-            $0 + $1.key.transferSize + $1.value.transferSize
+        var size: Int = ULEB128.size(UInt.init(self.count))
+        if  let keySize: Int = Key.fixedTransferSize {
+            size += self.count * keySize
+        } else {
+            for key: Key in self.keys {
+                size += key.transferSize
+            }
         }
+        if  let valueSize: Int = Value.fixedTransferSize {
+            size += self.count * valueSize
+        } else {
+            for value: Value in self.values {
+                size += value.transferSize
+            }
+        }
+        return size
     }
 
     @inlinable public func transfer(into output: inout TransferWriter) {
