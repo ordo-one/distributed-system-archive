@@ -1,7 +1,5 @@
 #if canImport(Darwin)
 import Darwin
-#elseif canImport(Glibc)
-import Glibc
 #endif
 import DistributedABI
 import Testing
@@ -62,10 +60,14 @@ import Testing
         }
     }
 
-    /// The stop is expected, so the process that makes it writes no core file, which on a
-    /// shared runner would take the disk and the time a crash report takes.
+    /// The stop is expected, so on Darwin the process that makes it writes no core file, which
+    /// on a shared Mac runner would take the disk and the time a crash report takes. Elsewhere
+    /// this does nothing: on Linux, Swift Testing already sets the child’s core limit to one
+    /// byte, which suppresses a core piped to a handler, and a limit of zero would undo that.
     static func dumpNoCore() {
+        #if canImport(Darwin)
         var limit: rlimit = .init(rlim_cur: 0, rlim_max: 0)
         _ = setrlimit(RLIMIT_CORE, &limit)
+        #endif
     }
 }
