@@ -91,9 +91,10 @@ extension TransferReader {
         return try self.readBytes(count: length)
     }
 
-    /// A ULEB128 count of elements, refused when it exceeds the bytes remaining: every element
-    /// takes at least one byte, so a hostile count never reserves room for more elements than
-    /// the bytes present could hold. Always inlined, as ``readPrefixedBytes()`` is.
+    /// A ULEB128 count of elements: the count form of `read(uleb128: Int.self)`, refused also
+    /// when it exceeds the bytes remaining. Every element takes at least one byte, so a hostile
+    /// count never reserves room for more elements than the bytes present could hold. Always
+    /// inlined, as ``readPrefixedBytes()`` is.
     @inlinable @inline(always) public mutating func readCount() throws(TransferError) -> Int {
         let count: Int = try self.readULEB128()
         guard count <= self.remaining else {
@@ -128,6 +129,35 @@ extension TransferReader {
         // `read(_:)` can see that an integer reads exactly its size
         self.index &+= size
         return .init(littleEndian: value)
+    }
+
+    /// A ULEB128 number, as ``TransferWriter/append(uleb128:)`` writes a `UInt`: its inverse,
+    /// as `read(littleEndian:)` is the inverse of ``TransferWriter/append(littleEndian:)``.
+    ///
+    /// A number that ends early is refused as ``TransferError/Kind/truncated(needed:remaining:)``,
+    /// and one not in canonical form, which runs past 64 bits or carries a redundant final zero
+    /// byte, as ``TransferError/Kind/malformedULEB128(remaining:)``. The number is not checked
+    /// against the bytes remaining. A number below 128 takes one byte and is read inline.
+    @inlinable public mutating func read(uleb128 _: UInt.Type) throws(TransferError) -> UInt {
+        if  self.index < self.bytes.byteCount {
+            let byte: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
+            if  byte < 0x80 {
+                self.index &+= 1
+                return UInt.init(byte)
+            }
+        }
+        return try self.readULEB128MultibyteUnsigned()
+    }
+
+    /// A ULEB128 number, as ``TransferWriter/append(uleb128:)`` writes an `Int`: refused as
+    /// `read(uleb128: UInt.self)` refuses one, and also when it exceeds `Int.max`, as
+    /// ``TransferError/Kind/malformedULEB128(remaining:)``, as a count or a length above
+    /// `Int.max` is.
+    ///
+    /// The number is not checked against the bytes remaining; ``readCount()`` is the count form
+    /// of this read, which is.
+    @inlinable public mutating func read(uleb128 _: Int.Type) throws(TransferError) -> Int {
+        try self.readULEB128()
     }
 
     /// One value, read through its ``Transferable/init(transferring:)``, whose errors propagate
@@ -241,6 +271,22 @@ extension TransferReader {
 
     // emitted into the client and kept out of line, as `TransferWriter.append(multibyte:)` is
     @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func readULEB128Multibyte() throws(TransferError) -> Int {
+        let value: UInt = try self.readULEB128Bits()
+        guard
+        let value: Int = .init(exactly: value) else {
+            throw .init(.malformedULEB128(remaining: self.remaining))
+        }
+        return value
+    }
+
+    // the same, for the number as a `UInt`, which may exceed `Int.max`
+    @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func readULEB128MultibyteUnsigned() throws(TransferError) -> UInt {
+        try self.readULEB128Bits()
+    }
+
+    /// The bits of a ULEB128 number in canonical form, of up to 64 bits, for the two
+    /// out-of-line reads above, into each of which it is inlined.
+    @inlinable @inline(always) mutating func readULEB128Bits() throws(TransferError) -> UInt {
         var value: UInt = 0
         var shift: Int = 0
         while true {
@@ -263,10 +309,6 @@ extension TransferReader {
                 break
             }
             shift += 7
-        }
-        guard
-        let value: Int = .init(exactly: value) else {
-            throw .init(.malformedULEB128(remaining: self.remaining))
         }
         return value
     }

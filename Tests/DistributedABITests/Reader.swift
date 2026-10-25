@@ -79,6 +79,82 @@ import Testing
         #expect(HostileInput.Expectation.init(error.kind) == .truncated(needed: 1, remaining: 0))
     }
 
+    /// A ULEB128 number read back as the writer appended it, with a byte behind it that the
+    /// read must leave: as a `UInt`, and as an `Int` when it is one.
+    @Test(arguments: [0, 127, 128, 16_383, 16_384, UInt.init(Int.max), .max] as [UInt])
+    static func ULEB128RoundTrips(_ value: UInt) throws {
+        let unsigned: [UInt8] = .init(capacity: 11) {
+            $0.append(uleb128: value)
+            $0.append(0xaa)
+        }
+        var input: TransferReader = .init(unsigned.span.bytes)
+        #expect(try input.read(uleb128: UInt.self) == value)
+        #expect(input.remaining == 1)
+
+        guard
+        let count: Int = .init(exactly: value) else {
+            return
+        }
+        let signed: [UInt8] = .init(capacity: 11) {
+            $0.append(uleb128: count)
+            $0.append(0xaa)
+        }
+        #expect(signed == unsigned)
+        input = .init(signed.span.bytes)
+        #expect(try input.read(uleb128: Int.self) == count)
+        #expect(input.remaining == 1)
+    }
+
+    /// A number above `Int.max` reads as a `UInt` and is refused as an `Int`, as a count above
+    /// it is, with the reader past its bytes.
+    @Test(arguments: [UInt.init(Int.max) + 1, .max]) static func ULEB128AboveIntMax(_ value: UInt) throws {
+        let bytes: [UInt8] = .init(capacity: 10) { $0.append(uleb128: value) }
+        var input: TransferReader = .init(bytes.span.bytes)
+        #expect(try input.read(uleb128: UInt.self) == value)
+
+        input = .init(bytes.span.bytes)
+        let error: TransferError = try #require(throws: TransferError.self) {
+            try input.read(uleb128: Int.self)
+        }
+        #expect(HostileInput.Expectation.init(error.kind) == .malformedULEB128(remaining: 0))
+        #expect(input.remaining == 0)
+    }
+
+    /// A ULEB128 number cut short or not in canonical form, refused by both forms with the
+    /// error `readCount()` reports for the same bytes, and the reader at `remaining`.
+    @Test(
+        arguments: [
+            ([], .truncated(needed: 1, remaining: 0), 0),
+            ([0x80], .truncated(needed: 1, remaining: 0), 0),
+            ([0xff, 0xff], .truncated(needed: 1, remaining: 0), 0),
+            ([0x80, 0x00], .malformedULEB128(remaining: 0), 0),
+            ([0x81, 0x00, 0x09], .malformedULEB128(remaining: 1), 1),
+            (.init(repeating: 0x80, count: 10) + [0x01], .malformedULEB128(remaining: 0), 0),
+        ] as [([UInt8], HostileInput.Expectation, Int)]
+    ) static func ULEB128Refusals(
+        _ bytes: [UInt8],
+        _ expected: HostileInput.Expectation,
+        _ remaining: Int
+    ) throws {
+        var input: TransferReader = .init(bytes.span.bytes)
+        let unsigned: TransferError = try #require(throws: TransferError.self) {
+            try input.read(uleb128: UInt.self)
+        }
+        #expect(HostileInput.Expectation.init(unsigned.kind) == expected)
+        #expect(input.remaining == remaining)
+
+        input = .init(bytes.span.bytes)
+        let signed: TransferError = try #require(throws: TransferError.self) {
+            try input.read(uleb128: Int.self)
+        }
+        #expect(HostileInput.Expectation.init(signed.kind) == expected)
+        #expect(input.remaining == remaining)
+
+        input = .init(bytes.span.bytes)
+        let count: TransferError = try #require(throws: TransferError.self) { try input.readCount() }
+        #expect(HostileInput.Expectation.init(count.kind) == expected)
+    }
+
     /// Several values read in order from one buffer, as a composite reads its fields.
     @Test static func Fields() throws {
         let bytes: [UInt8] = .init(capacity: 64) {
