@@ -1,7 +1,8 @@
 import DistributedABI
 
 /// A composite of two `UInt32`, which states that it is stored as its transfer bytes as the
-/// derive macro would: from its fields’ own statements and its layout, checked in code.
+/// `@Transferable` macro planned for plugin-to-plugin calls would: from its fields’ own
+/// statements and its layout, checked in code.
 struct Pair: Equatable, Transferable {
     let low: UInt32
     let high: UInt32

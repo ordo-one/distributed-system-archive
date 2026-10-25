@@ -23,9 +23,9 @@ public protocol Transferable: Sendable {
     /// This is a requirement rather than a marker protocol because the generic conformances of
     /// the collections make the choice: through the witness table, a requirement is one call
     /// and folds away when specialized, where asking for a protocol is a dynamic cast per
-    /// collection; and a derive macro states the layout of a composite by computing it from its
-    /// fields’ own layouts and their `MemoryLayout`, which a conformance to a protocol cannot
-    /// depend on.
+    /// collection; and the `@Transferable` macro planned for plugin-to-plugin calls states the
+    /// layout of a composite by computing it from its fields’ own layouts and their
+    /// `MemoryLayout`, which a conformance to a protocol cannot depend on.
     static var transferLayout: TransferLayout? { get }
 
     /// The exact number of bytes ``transfer(into:)`` writes, at least one.
