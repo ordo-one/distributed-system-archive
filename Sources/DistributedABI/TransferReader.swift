@@ -49,46 +49,13 @@ extension TransferReader {
     }
 
     /// A ULEB128 length, then that many bytes: the inverse of
-    /// ``TransferWriter/append(prefixed:)``. Always inlined, with a length of one or two bytes
-    /// read inline, as the length of a serialized message of up to 16,383 bytes is, and the
-    /// bytes taken inline rather than through ``readBytes(count:)``, which a client calls out of
-    /// line. Left to the optimizer, a client calls this through the framework’s stub, and a
-    /// conformance whose read calls it is then reached through the protocol’s dispatch thunk
-    /// rather than inlined.
+    /// ``TransferWriter/append(prefixed:)``. Always inlined, with a length of one byte read
+    /// inline through ``readCount()`` and the bytes taken inline through
+    /// ``readBytes(holding:)``.
     @_lifetime(copy self)
     @inlinable @inline(always) public mutating func readPrefixedBytes() throws(TransferError) -> RawSpan {
-        let length: Int = try self.readULEB128Short()
-        guard length <= self.remaining else {
-            throw .init(.excessiveCount(length, remaining: self.remaining))
-        }
-        // cannot overflow, since `length` fits in the bytes remaining
-        let span: RawSpan = self.bytes.extracting(self.index ..< self.index &+ length)
-        self.index &+= length
-        return span
-    }
-
-    /// The bytes of a contiguous value of variable size, as ``readPrefixedBytes()`` reads them, but
-    /// emitted into the client and kept out of line. The read around it is then small enough
-    /// for a client to inline into its caller, which calls the type’s open directly. With the
-    /// length read inline, the read was too large to inline, and stayed a function of its own,
-    /// which the optimizer merged across types and reached through a thunk per type.
-    @_lifetime(copy self)
-    @usableFromInline @_alwaysEmitIntoClient @inline(never) mutating func readContiguousBytes() throws(TransferError) -> RawSpan {
-        try self.readPrefixedBytes()
-    }
-
-    /// The bytes of a string: a ULEB128 length, then that many bytes, with only a length of
-    /// one byte read inline, as the length of a short string is. Always inlined, as
-    /// ``readPrefixedBytes()`` is, but smaller, so that a client still inlines the whole string
-    /// read into a collection’s element loop; with the two-byte read of
-    /// ``readPrefixedBytes()``, a string batch read a fifth more instructions.
-    @_lifetime(copy self)
-    @inlinable @inline(always) mutating func readUTF8Bytes() throws(TransferError) -> RawSpan {
-        let length: Int = try self.readULEB128()
-        guard length <= self.remaining else {
-            throw .init(.excessiveCount(length, remaining: self.remaining))
-        }
-        return try self.readBytes(count: length)
+        let length: Int = try self.readCount()
+        return self.readBytes(holding: length)
     }
 
     /// A ULEB128 count of elements: the count form of `read(uleb128: Int.self)`, refused also
@@ -247,26 +214,6 @@ extension TransferReader {
             }
         }
         return try self.readULEB128Multibyte()
-    }
-
-    /// A ULEB128 number as ``readULEB128()`` reads it, with a number below 16,384, which takes
-    /// two bytes, read inline as well.
-    @inlinable @inline(always) mutating func readULEB128Short() throws(TransferError) -> Int {
-        // cannot overflow, since the index is at most the byte count
-        if  self.index &+ 1 < self.bytes.byteCount {
-            let low: UInt8 = self.bytes.load(fromByteOffset: self.index, as: UInt8.self)
-            if  low < 0x80 {
-                self.index &+= 1
-                return Int.init(low)
-            }
-            let high: UInt8 = self.bytes.load(fromByteOffset: self.index &+ 1, as: UInt8.self)
-            // a final zero byte is redundant, and the out-of-line read refuses it
-            if  high < 0x80, high != 0 {
-                self.index &+= 2
-                return Int.init(low & 0x7f) | Int.init(high) &<< 7
-            }
-        }
-        return try self.readULEB128()
     }
 
     // emitted into the client and kept out of line, as `TransferWriter.append(multibyte:)` is

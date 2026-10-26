@@ -30,7 +30,7 @@ extension String: Transferable {
     /// Reads a ULEB128 length and that many bytes; bytes that are not valid UTF-8 are refused
     /// with the standard library’s validation error as the payload.
     @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
-        let bytes: RawSpan = try input.readUTF8Bytes()
+        let bytes: RawSpan = try input.readPrefixedBytes()
         let utf8: UTF8Span
         do {
             utf8 = try .init(validating: .init(viewing: bytes))
