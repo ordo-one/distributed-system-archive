@@ -1,20 +1,18 @@
-@available(*, deprecated) extension Bool: Transferable {}
-extension Bool: BufferEncodable {
-    @inlinable public func encode(to output: inout BufferEncoder) {
+extension Bool: Transferable {
+    /// A `Bool` travels as one byte, 0 or 1; any other byte is refused with
+    /// ``TransferError/Kind/invalidDiscriminant(_:)``. `false` and `true` are stored as the
+    /// bytes 0 and 1 they travel as.
+    @inlinable public static var transferLayout: TransferLayout? { .discriminant(count: 2) }
+    @inlinable public var transferSize: Int { 1 }
+
+    @inlinable public func transfer(into output: inout TransferWriter) {
         output.append(self ? 1 : 0)
     }
-}
-extension Bool: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        switch try input.parse() {
-        case 0:
-            return false
-        case 1:
-            return true
-        case let code:
-            throw .arbitrary(BufferDiscriminationError<UInt8, Self>.init(code: code))
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        switch try input.readByte() {
+        case 0: self = false
+        case 1: self = true
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }

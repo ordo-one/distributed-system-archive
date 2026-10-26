@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 import PackageDescription
 import class Foundation.ProcessInfo
 
@@ -22,6 +22,8 @@ let package: Package = .init(
         .target(
             name: "DistributedABI",
             swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .strictMemorySafety(),
                 .unsafeFlags(["-enable-library-evolution", "-emit-module-interface"]),
             ]
         ),

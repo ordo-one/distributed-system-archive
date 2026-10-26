@@ -1,33 +1,21 @@
-@available(*, deprecated) extension Optional: Transferable where Wrapped: Transferable {}
-extension Optional: BufferEncodable where Wrapped: BufferEncodable {
-    @inlinable public func encode(
-        to output: inout BufferEncoder
-    ) throws(Wrapped.SerializationError) {
+extension Optional: Transferable where Wrapped: Transferable {
+    /// An optional travels as one discriminant byte, 0 for nil and 1 for a value, then the
+    /// value’s bytes.
+    @inlinable public var transferSize: Int { 1 + (self?.transferSize ?? 0) }
+
+    @inlinable @inline(always) public func transfer(into output: inout TransferWriter) {
         if  let self: Wrapped {
-            BinaryFormat.some.encode(to: &output)
-            try self.encode(to: &output)
+            output.append(1)
+            self.transfer(into: &output)
         } else {
-            BinaryFormat.none.encode(to: &output)
+            output.append(0)
         }
     }
-}
-extension Optional: BufferDecodable where Wrapped: BufferDecodable {
-    @inlinable public static func decode(
-        from input: inout BufferDecoder
-    ) throws(BufferDecodingError) -> Self {
-        let type: BinaryFormat = try .decode(from: &input)
-        switch type {
-        case .none:
-            return nil
-
-        case .some:
-            do {
-                return try Wrapped.decode(from: &input)
-            } catch let error as BufferDecodingError {
-                throw error
-            } catch {
-                throw .arbitrary(error)
-            }
+    @inlinable public init(transferring input: inout TransferReader) throws(TransferError) {
+        switch try input.readByte() {
+        case 0: self = nil
+        case 1: self = try Wrapped.init(transferring: &input)
+        case let code: throw .init(.invalidDiscriminant(.init(code)))
         }
     }
 }
