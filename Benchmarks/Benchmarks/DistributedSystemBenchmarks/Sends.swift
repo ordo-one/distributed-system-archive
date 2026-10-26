@@ -26,6 +26,19 @@ import DistributedABI
     return output.finalize(for: buffer)
 }
 
+@inline(never) func receive<Value>(
+    _: Value.Type,
+    from frame: UnsafeMutableRawBufferPointer,
+    count: Int
+) throws(TransferError) -> Value where Value: Transferable {
+    var input: TransferReader = .init(
+        unsafe UnsafeRawBufferPointer.init(rebasing: frame[..<count]).bytes
+    )
+    let value: Value = try .init(transferring: &input)
+    try input.readEnd()
+    return value
+}
+
 func registerSendBenchmarks() {
     let config: Benchmark.Configuration = .init(
         metrics: .default,
@@ -51,11 +64,32 @@ func registerSendBenchmarks() {
         }
     }
 
+    func registerReceive<Value>(_ name: String, _ value: Value) where Value: Transferable & Equatable {
+        precondition(debugRoundtripOK(value), "\(name) roundtrip mismatch")
+        let capacity: Int = value.transferSize
+        Benchmark.init(name, configuration: config) { benchmark in
+            let frame: UnsafeMutableRawBufferPointer = .allocate(
+                byteCount: capacity,
+                alignment: 16
+            )
+            defer {
+                frame.deallocate()
+            }
+            let count: Int = send(value, into: frame)
+            benchmark.startMeasurement()
+            for _ in benchmark.scaledIterations {
+                blackHole(try receive(Value.self, from: frame, count: count))
+            }
+        }
+    }
+
     let messages: [Message] = (0 ..< 16).map {
         .init(bytes: .init(repeating: UInt8.init($0), count: 316))
     }
     register("SBE Send x1", messages[0])
     register("SBE SendArray x16", messages)
+    registerReceive("SBE Receive x1", messages[0])
+    registerReceive("SBE ReceiveArray x16", messages)
     register("SBE SendArraySlice x16", messages[...])
     register("SBE SendSet x16", Set<Message>.init(messages))
     register(

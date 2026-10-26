@@ -42,7 +42,7 @@ extension ContiguousTransferable {
         if  let size: Int = Self.transferLayout?.size {
             try self.init(transferBytes: try input.readBytes(count: size))
         } else {
-            try self.init(transferBytes: try input.readContiguousBytes())
+            try self.init(transferBytes: try input.readPrefixedBytes())
         }
     }
 }
