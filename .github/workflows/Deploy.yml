@@ -32,6 +32,9 @@ jobs:
             -   name: 🎀 Swift version 🎀
                 run: swift --version
 
+            -   name: 🎀 Install XcodeGen 🎀
+                run: brew install xcodegen
+
             -   name: 🎀 Build 🎀
                 run: Scripts/Build/macOS
 
