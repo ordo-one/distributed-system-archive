@@ -3,7 +3,7 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 let package: Package = .init(
-    name: "internal-distributed-system",
+    name: "distributed-system",
     platforms: [
         .macOS(.v26),
         .iOS(.v26),
