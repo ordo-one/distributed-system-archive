@@ -9,9 +9,7 @@ struct Failure: Error, Equatable, Transferable {
     }
 }
 extension Failure {
-    static var transferLayout: TransferLayout? {
-        Int32.transferLayout.map { .fixed(size: $0.size) }
-    }
+    static var transferLayout: TransferLayout? { Int32.transferLayout.map { .fixed(size: $0.size) } }
     var transferSize: Int { self.code.transferSize }
 
     func transfer(into output: inout TransferWriter) {

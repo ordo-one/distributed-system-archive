@@ -197,10 +197,7 @@ extension Roundtrips {
             [UInt8.init(truncatingIfNeeded: $0), UInt8.init(truncatingIfNeeded: $0 >> 8)]
         }
         let string: NSString = try #require(
-            NSString.init(
-                data: Data.init(bytes),
-                encoding: String.Encoding.utf16LittleEndian.rawValue
-            )
+            NSString.init(data: Data.init(bytes), encoding: String.Encoding.utf16LittleEndian.rawValue)
         )
         return string as String
     }

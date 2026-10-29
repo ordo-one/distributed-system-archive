@@ -57,10 +57,7 @@ import Testing
             (["k": 3, "k": 4] as Ledger<String, UInt16>, [2, 1, 0x6b, 3, 0, 1, 0x6b, 4, 0]),
             // the count is ULEB128: one byte up to 127, two up to 16,383
             ([UInt8].init(repeating: 9, count: 127), [0x7f] + .init(repeating: 9, count: 127)),
-            (
-                [UInt8].init(repeating: 9, count: 128),
-                [0x80, 0x01] + .init(repeating: 9, count: 128)
-            ),
+            ([UInt8].init(repeating: 9, count: 128), [0x80, 0x01] + .init(repeating: 9, count: 128)),
             (
                 [UInt8].init(repeating: 9, count: 16_384),
                 [0x80, 0x80, 0x01] + .init(repeating: 9, count: 16_384)
@@ -74,10 +71,7 @@ import Testing
             (Blob.init(bytes: []), [0]),
             ([.init(bytes: []), .init(bytes: [7])] as [Blob], [2, 0, 1, 7]),
             // a length of two bytes, as a serialized message of 128 to 16,383 bytes has
-            (
-                Row.init(bytes: .init(repeating: 9, count: 128)),
-                [0x80, 0x01] + .init(repeating: 9, count: 128)
-            ),
+            (Row.init(bytes: .init(repeating: 9, count: 128)), [0x80, 0x01] + .init(repeating: 9, count: 128)),
             (
                 Row.init(bytes: .init(repeating: 9, count: 16_384)),
                 [0x80, 0x80, 0x01] + .init(repeating: 9, count: 16_384)
@@ -85,10 +79,7 @@ import Testing
             (Identifier.init(0x0102), [2, 1, 0, 0, 0, 0, 0, 0]),
             // packed when the contiguous type states a fixed size, each behind its own length
             // when it does not
-            (
-                [.init(1), .init(2)] as [Identifier],
-                [2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]
-            ),
+            ([.init(1), .init(2)] as [Identifier], [2, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]),
             ([.init(bytes: [3]), .init(bytes: [1, 4])] as [Row], [2, 1, 3, 2, 1, 4]),
             // a composite with no fields writes a byte of its own, so it reads back from inside
             // a collection, which refuses a count the bytes remaining could not hold
@@ -106,18 +97,10 @@ import Testing
     @Test(
         arguments: [
             // integers: their width, little-endian
-            Packing.init(
-                [1, -2] as [Int],
-                fixed: 8,
-                [2, 1, 0, 0, 0, 0, 0, 0, 0] + [0xfe] + .init(repeating: 0xff, count: 7)
-            ),
+            Packing.init([1, -2] as [Int], fixed: 8, [2, 1, 0, 0, 0, 0, 0, 0, 0] + [0xfe] + .init(repeating: 0xff, count: 7)),
             Packing.init([1, -2] as [Int8], fixed: 1, [2, 1, 0xfe]),
             Packing.init([0x0102, -2] as [Int16], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
-            Packing.init(
-                [0x0102_0304, -2] as [Int32],
-                fixed: 4,
-                [2, 4, 3, 2, 1, 0xfe, 0xff, 0xff, 0xff]
-            ),
+            Packing.init([0x0102_0304, -2] as [Int32], fixed: 4, [2, 4, 3, 2, 1, 0xfe, 0xff, 0xff, 0xff]),
             Packing.init(
                 [0x0102_0304_0506_0708, -2] as [Int64],
                 fixed: 8,
@@ -126,28 +109,13 @@ import Testing
             Packing.init(
                 [1, -2] as [Int128],
                 fixed: 16,
-                [2, 1] + .init(repeating: 0, count: 15) + [0xfe] + .init(
-                    repeating: 0xff,
-                    count: 15
-                )
+                [2, 1] + .init(repeating: 0, count: 15) + [0xfe] + .init(repeating: 0xff, count: 15)
             ),
-            Packing.init(
-                [1, .max] as [UInt],
-                fixed: 8,
-                [2, 1, 0, 0, 0, 0, 0, 0, 0] + .init(repeating: 0xff, count: 8)
-            ),
+            Packing.init([1, .max] as [UInt], fixed: 8, [2, 1, 0, 0, 0, 0, 0, 0, 0] + .init(repeating: 0xff, count: 8)),
             Packing.init([1, 0xff] as [UInt8], fixed: 1, [2, 1, 0xff]),
             Packing.init([0x0102, 0xfffe] as [UInt16], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
-            Packing.init(
-                [0x0102_0304, 0xdead_beef] as [UInt32],
-                fixed: 4,
-                [2, 4, 3, 2, 1, 0xef, 0xbe, 0xad, 0xde]
-            ),
-            Packing.init(
-                [0x0102_0304_0506_0708, 1] as [UInt64],
-                fixed: 8,
-                [2, 8, 7, 6, 5, 4, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0]
-            ),
+            Packing.init([0x0102_0304, 0xdead_beef] as [UInt32], fixed: 4, [2, 4, 3, 2, 1, 0xef, 0xbe, 0xad, 0xde]),
+            Packing.init([0x0102_0304_0506_0708, 1] as [UInt64], fixed: 8, [2, 8, 7, 6, 5, 4, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0]),
             Packing.init(
                 [1, 1 << 64] as [UInt128],
                 fixed: 16,
@@ -157,11 +125,7 @@ import Testing
             Packing.init([true, false], fixed: 1, [2, 1, 0]),
             // the bit pattern, little-endian
             Packing.init([1, -2] as [Float], fixed: 4, [2, 0, 0, 0x80, 0x3f, 0, 0, 0, 0xc0]),
-            Packing.init(
-                [1, -2] as [Double],
-                fixed: 8,
-                [2, 0, 0, 0, 0, 0, 0, 0xf0, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0xc0]
-            ),
+            Packing.init([1, -2] as [Double], fixed: 8, [2, 0, 0, 0, 0, 0, 0, 0xf0, 0x3f, 0, 0, 0, 0, 0, 0, 0, 0xc0]),
             // an integer raw value: the size of the raw value
             Packing.init([.sell, .buy] as [Side], fixed: 1, [2, 0xff, 1]),
             Packing.init([.primary, .dark] as [Venue], fixed: 2, [2, 2, 1, 0xfe, 0xff]),
@@ -199,27 +163,15 @@ import Testing
         arguments: [
             // fixed-size elements, packed
             Inline.init([7] as InlineArray<1, UInt32>, fixed: 4, [7, 0, 0, 0]),
-            Inline.init(
-                [1, -2, 0x0102, 0] as InlineArray<4, Int16>,
-                fixed: 8,
-                [1, 0, 0xfe, 0xff, 2, 1, 0, 0]
-            ),
+            Inline.init([1, -2, 0x0102, 0] as InlineArray<4, Int16>, fixed: 8, [1, 0, 0xfe, 0xff, 2, 1, 0, 0]),
             // variable-size elements, each delimiting itself
-            Inline.init(
-                ["ab", "", "é"] as InlineArray<3, String>,
-                fixed: nil,
-                [2, 0x61, 0x62, 0, 2, 0xc3, 0xa9]
-            ),
+            Inline.init(["ab", "", "é"] as InlineArray<3, String>, fixed: nil, [2, 0x61, 0x62, 0, 2, 0xc3, 0xa9]),
             // no elements: one zero byte, whatever the element
             Inline.init([] as InlineArray<0, Int64>, fixed: 1, [0]),
             Inline.init([] as InlineArray<0, String>, fixed: 1, [0]),
             Inline.init([[], []] as [InlineArray<0, String>], fixed: nil, [2, 0, 0]),
             // nested in an inline array, and in a composite, which then has a fixed size too
-            Inline.init(
-                [[1, 2], [3, 4]] as InlineArray<2, InlineArray<2, UInt8>>,
-                fixed: 4,
-                [1, 2, 3, 4]
-            ),
+            Inline.init([[1, 2], [3, 4]] as InlineArray<2, InlineArray<2, UInt8>>, fixed: 4, [1, 2, 3, 4]),
             Inline.init(
                 Ladder.init(prices: [0x0102, -1], side: .sell),
                 fixed: 9,

@@ -86,10 +86,7 @@ extension Fuzz.Shape {
             var parts: [[UInt8]] = []
             for _: Int in 0 ..< count {
                 var part: [UInt8] = []
-                guard key.canonical(&input, into: &part), value.canonical(
-                    &input,
-                    into: &part
-                ) else {
+                guard key.canonical(&input, into: &part), value.canonical(&input, into: &part) else {
                     return false
                 }
                 parts.append(part)

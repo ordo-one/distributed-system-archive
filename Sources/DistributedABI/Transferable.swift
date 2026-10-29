@@ -102,8 +102,7 @@ extension Transferable
         self = try input.read(littleEndian: Self.self)
     }
 }
-extension Transferable where Self: RawRepresentable,
-    RawValue: Transferable & FixedWidthInteger {
+extension Transferable where Self: RawRepresentable, RawValue: Transferable & FixedWidthInteger {
     /// A value with an integer raw value travels as its raw value, at its raw value’s size, one
     /// value at a time: an enumeration is stored as its case index, not its raw value, so its
     /// layout is never ``TransferLayout/bitwise(size:)``. A raw value with no case is a

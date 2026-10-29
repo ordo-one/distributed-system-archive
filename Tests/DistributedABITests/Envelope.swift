@@ -20,9 +20,6 @@ extension Envelope {
         self.payload.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(
-            tag: try .init(transferring: &input),
-            payload: try .init(transferring: &input)
-        )
+        self.init(tag: try .init(transferring: &input), payload: try .init(transferring: &input))
     }
 }

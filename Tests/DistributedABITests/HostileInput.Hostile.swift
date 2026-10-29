@@ -16,9 +16,7 @@ extension HostileInput {
         ) where Value: Transferable {
             self.name = name
             self.bytes = bytes
-            self.decode = { (bytes: [UInt8]) throws(TransferError) in
-                _ = try Value.decode(bytes)
-            }
+            self.decode = { (bytes: [UInt8]) throws(TransferError) in _ = try Value.decode(bytes) }
             self.expected = expected
         }
     }

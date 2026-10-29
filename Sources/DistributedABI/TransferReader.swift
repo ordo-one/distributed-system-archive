@@ -179,10 +179,7 @@ extension TransferReader {
     ) throws(TransferError) where Element: Transferable {
         precondition(0 ... output.freeCapacity ~= count, "OutputSpan capacity overflow")
         // cannot overflow, since that many elements fit in the output’s memory at that stride
-        if  count != 0, case let (
-                size,
-                cases
-            )? = Element.bitwiseTransfer, count &* size <= self.remaining {
+        if  count != 0, case let (size, cases)? = Element.bitwiseTransfer, count &* size <= self.remaining {
             if  let cases: Int {
                 try self.checkDiscriminants(count, below: cases)
             }

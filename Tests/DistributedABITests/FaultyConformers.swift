@@ -53,9 +53,7 @@ import Testing
 
     /// An inline array of elements whose fixed size it cannot multiply states none, and reads
     /// each element through its own conformance, which still checks the element’s own size.
-    @Test(
-        .enabled(if: _isDebugAssertConfiguration())
-    ) static func ReadShortInsideAnInlineArray() async {
+    @Test(.enabled(if: _isDebugAssertConfiguration())) static func ReadShortInsideAnInlineArray() async {
         await #expect(processExitsWith: .failure) {
             FaultyConformers.dumpNoCore()
             _ = try? [InlineArray<2, Oversized>].decode([1, 1, 2])

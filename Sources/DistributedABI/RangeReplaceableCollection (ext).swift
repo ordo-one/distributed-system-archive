@@ -8,9 +8,7 @@ extension RangeReplaceableCollection where Element: Transferable {
     ///
     /// The count is refused before any room is reserved when the bytes remaining could not
     /// hold that many elements.
-    @inlinable public init(
-        transferringElements input: inout TransferReader
-    ) throws(TransferError) {
+    @inlinable public init(transferringElements input: inout TransferReader) throws(TransferError) {
         let count: Int = try input.readCount(of: Element.self)
         self.init()
         self.reserveCapacity(count)
