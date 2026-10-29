@@ -29,9 +29,6 @@ jobs:
             -   name: 🎀 Select Xcode 27.2 🎀
                 run: sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
 
-            -   name: 🎀 Install XcodeGen 🎀
-                run: command -v xcodegen || brew install xcodegen
-
             -   name: 🎀 Swift version 🎀
                 run: swift --version
 
