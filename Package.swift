@@ -3,7 +3,7 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 let package: Package = .init(
-    name: "internal-distributed-system",
+    name: "distributed-system",
     platforms: [
         .macOS(.v26),
         .iOS(.v26),
@@ -16,7 +16,7 @@ let package: Package = .init(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/ordo-one/ordo-format", from: "1.0.0"),
+        .package(url: "https://github.com/ordo-one/dollup", from: "1.0.1"),
     ],
     targets: [
         .target(

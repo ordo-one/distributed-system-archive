@@ -12,14 +12,14 @@ let package: Package = .init(
     dependencies: [
         .package(url: "https://github.com/ordo-one/dollup", from: "1.0.1"),
         .package(url: "https://github.com/ordo-one/package-benchmark", from: "1.31.0"),
-        .package(name: "internal-distributed-system", path: ".."),
+        .package(name: "distributed-system", path: ".."),
     ],
     targets: [
         .executableTarget(
             name: "DistributedSystemBenchmarks",
             dependencies: [
                 .product(name: "Benchmark", package: "package-benchmark"),
-                .product(name: "OrdoDistributedABI", package: "internal-distributed-system"),
+                .product(name: "OrdoDistributedABI", package: "distributed-system"),
             ],
             path: "Benchmarks/DistributedSystemBenchmarks",
             plugins: [

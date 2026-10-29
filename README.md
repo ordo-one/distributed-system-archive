@@ -2,6 +2,13 @@
 
 DistributedABI is the wire format of Ordo’s distributed calls: how an argument or a result becomes bytes in a network frame, and how those bytes become a value again on the other side. Version 8 is built on one idea. The transport moves a value’s bytes; it does not rebuild them.
 
+<!-- DO NOT EDIT BELOW! AUTOSYNC CONTENT [STATUS TABLE] -->
+| Platform | Status |
+| -------- | ------ |
+| 🐧 Linux | [![Status](https://raw.githubusercontent.com/ordo-one/distributed-system/refs/badges/ci/Tests/Linux/status.svg)](https://github.com/ordo-one/distributed-system/actions/workflows/Tests.yml) |
+| 🍏 Darwin | [![Status](https://raw.githubusercontent.com/ordo-one/distributed-system/refs/badges/ci/Tests/macOS/status.svg)](https://github.com/ordo-one/distributed-system/actions/workflows/Tests.yml) |
+<!-- DO NOT EDIT ABOVE! AUTOSYNC CONTENT [STATUS TABLE] -->
+
 
 ## A value lends its bytes, and delimits itself
 
