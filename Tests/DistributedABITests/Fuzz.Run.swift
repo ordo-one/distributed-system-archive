@@ -60,7 +60,10 @@ extension Fuzz.Run {
 
     /// A file named for the test and the type in a directory of the temporary directory,
     /// empty and open for writing; nil if it cannot be made.
-    private static func progress(test: String, type: String) -> (file: FileHandle, path: String)? {
+    private static func progress(test: String, type: String) -> (
+        file: FileHandle,
+        path: String
+    )? {
         let directory: URL = FileManager.default.temporaryDirectory.appending(
             path: "distributed-abi-fuzz",
             directoryHint: .isDirectory

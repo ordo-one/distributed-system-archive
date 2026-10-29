@@ -42,7 +42,9 @@ import Testing
     }
 
     /// The variable-length API: a ULEB128 length, then the bytes, both ways.
-    @Test(arguments: [0, 1, 127, 128, 255, 256, 16_384]) static func Prefixed(_ length: Int) throws {
+    @Test(
+        arguments: [0, 1, 127, 128, 255, 256, 16_384]
+    ) static func Prefixed(_ length: Int) throws {
         let payload: [UInt8] = (0 ..< length).map { UInt8.init(truncatingIfNeeded: $0) }
         let bytes: [UInt8] = .init(capacity: ULEB128.size(length) + length) {
             $0.append(prefixed: payload.span.bytes)
@@ -75,8 +77,12 @@ import Testing
         #expect(try input.readCount() == 1)
         #expect(try input.readByte() == 0xaa)
         try input.readEnd()
-        let error: TransferError = try #require(throws: TransferError.self) { try input.readByte() }
-        #expect(HostileInput.Expectation.init(error.kind) == .truncated(needed: 1, remaining: 0))
+        let error: TransferError = try #require(throws: TransferError.self) {
+            try input.readByte()
+        }
+        #expect(
+            HostileInput.Expectation.init(error.kind) == .truncated(needed: 1, remaining: 0)
+        )
     }
 
     /// A ULEB128 number read back as the writer appended it, with a byte behind it that the
@@ -107,7 +113,9 @@ import Testing
 
     /// A number above `Int.max` reads as a `UInt` and is refused as an `Int`, as a count above
     /// it is, with the reader past its bytes.
-    @Test(arguments: [UInt.init(Int.max) + 1, .max]) static func ULEB128AboveIntMax(_ value: UInt) throws {
+    @Test(
+        arguments: [UInt.init(Int.max) + 1, .max]
+    ) static func ULEB128AboveIntMax(_ value: UInt) throws {
         let bytes: [UInt8] = .init(capacity: 10) { $0.append(uleb128: value) }
         var input: TransferReader = .init(bytes.span.bytes)
         #expect(try input.read(uleb128: UInt.self) == value)
@@ -151,7 +159,9 @@ import Testing
         #expect(input.remaining == remaining)
 
         input = .init(bytes.span.bytes)
-        let count: TransferError = try #require(throws: TransferError.self) { try input.readCount() }
+        let count: TransferError = try #require(throws: TransferError.self) {
+            try input.readCount()
+        }
         #expect(HostileInput.Expectation.init(count.kind) == expected)
     }
 
@@ -177,8 +187,14 @@ import Testing
         arguments: [
             (.truncated(needed: 8, remaining: 3), "expected 8 byte(s), but 3 remain"),
             (.trailingBytes(remaining: 2), "expected end of input, but 2 byte(s) remain"),
-            (.excessiveCount(9, remaining: 1), "count or length 9 exceeds the 1 byte(s) remaining"),
-            (.malformedULEB128(remaining: 0), "malformed ULEB128 number, with 0 byte(s) remaining"),
+            (
+                .excessiveCount(9, remaining: 1),
+                "count or length 9 exceeds the 1 byte(s) remaining"
+            ),
+            (
+                .malformedULEB128(remaining: 0),
+                "malformed ULEB128 number, with 0 byte(s) remaining"
+            ),
             (.invalidDiscriminant(2), "invalid discriminant (2)"),
             (.duplicate(at: 3), "duplicate element at position [3]"),
             (.payload(Row.Refusal.empty), "empty"),

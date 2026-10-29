@@ -25,7 +25,10 @@ extension TransferReader {
     /// would, and refuses it with the ``TransferError/Kind/invalidDiscriminant(_:)`` error
     /// that read reports, so that the reader stands where the read of one value at a time
     /// leaves it.
-    @inlinable mutating func checkDiscriminants(_ count: Int, below cases: Int) throws(TransferError) {
+    @inlinable mutating func checkDiscriminants(
+        _ count: Int,
+        below cases: Int
+    ) throws(TransferError) {
         // cannot overflow, since `count` fits in the bytes remaining
         let next: RawSpan = self.bytes.extracting(self.index ..< self.index &+ count)
         guard

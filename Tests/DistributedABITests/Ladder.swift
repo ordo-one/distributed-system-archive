@@ -29,6 +29,9 @@ extension Ladder {
         self.side.transfer(into: &output)
     }
     init(transferring input: inout TransferReader) throws(TransferError) {
-        self.init(prices: try .init(transferring: &input), side: try .init(transferring: &input))
+        self.init(
+            prices: try .init(transferring: &input),
+            side: try .init(transferring: &input)
+        )
     }
 }

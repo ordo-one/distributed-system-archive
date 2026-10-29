@@ -12,19 +12,40 @@ import Testing
     /// vary in size states none.
     @Test(
         arguments: [
-            (Int8.self, .bitwise(size: 1)), (Int16.self, .bitwise(size: 2)), (Int32.self, .bitwise(size: 4)),
-            (Int64.self, .bitwise(size: 8)), (Int128.self, .bitwise(size: 16)), (Int.self, .bitwise(size: 8)),
-            (UInt8.self, .bitwise(size: 1)), (UInt16.self, .bitwise(size: 2)), (UInt32.self, .bitwise(size: 4)),
-            (UInt64.self, .bitwise(size: 8)), (UInt128.self, .bitwise(size: 16)), (UInt.self, .bitwise(size: 8)),
+            (Int8.self, .bitwise(size: 1)), (Int16.self, .bitwise(size: 2)), (
+                Int32.self,
+                .bitwise(size: 4)
+            ),
+            (Int64.self, .bitwise(size: 8)), (Int128.self, .bitwise(size: 16)), (
+                Int.self,
+                .bitwise(size: 8)
+            ),
+            (UInt8.self, .bitwise(size: 1)), (UInt16.self, .bitwise(size: 2)), (
+                UInt32.self,
+                .bitwise(size: 4)
+            ),
+            (UInt64.self, .bitwise(size: 8)), (UInt128.self, .bitwise(size: 16)), (
+                UInt.self,
+                .bitwise(size: 8)
+            ),
             (Float.self, .bitwise(size: 4)), (Double.self, .bitwise(size: 8)),
             (Ticket.self, .bitwise(size: 8)), (Pair.self, .bitwise(size: 8)),
             (InlineArray<2, UInt64>.self, .bitwise(size: 16)),
             (Bool.self, .discriminant(count: 2)), (Mark.self, .discriminant(count: 3)),
-            (Side.self, .fixed(size: 1)), (Venue.self, .fixed(size: 2)), (UnstatedTicket.self, .fixed(size: 8)),
+            (Side.self, .fixed(size: 1)), (Venue.self, .fixed(size: 2)), (
+                UnstatedTicket.self,
+                .fixed(size: 8)
+            ),
             (UnstatedMark.self, .fixed(size: 1)), (Identifier.self, .fixed(size: 8)),
-            (InteriorPadding.self, .fixed(size: 9)), (InlineArray<2, Bool>.self, .fixed(size: 2)),
+            (InteriorPadding.self, .fixed(size: 9)), (
+                InlineArray<2, Bool>.self,
+                .fixed(size: 2)
+            ),
             (InlineArray<0, String>.self, .fixed(size: 1)),
-            (String.self, nil), (Int?.self, nil), ([UInt64].self, nil), (InlineArray<2, String>.self, nil),
+            (String.self, nil), (Int?.self, nil), ([UInt64].self, nil), (
+                InlineArray<2, String>.self,
+                nil
+            ),
         ] as [(any Transferable.Type, TransferLayout?)]
     ) static func Layouts(_ type: any Transferable.Type, _ onLittleEndian: TransferLayout?) {
         #if _endian(little)
@@ -70,8 +91,15 @@ import Testing
     /// An inline array of wrappers that state it writes its elements with no count, the same
     /// bytes as one of wrappers that do not, and an empty one still writes one zero byte.
     @Test static func InlineArrays() throws {
-        let golden: [UInt8] = [1, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0] + .init(repeating: 0xff, count: 8)
-        let tickets: InlineArray<3, Ticket> = [.init(rawValue: 1), .init(rawValue: 0x0102), .init(rawValue: .max)]
+        let golden: [UInt8] = [1, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0] + .init(
+            repeating: 0xff,
+            count: 8
+        )
+        let tickets: InlineArray<3, Ticket> = [
+            .init(rawValue: 1),
+            .init(rawValue: 0x0102),
+            .init(rawValue: .max)
+        ]
         let unstated: InlineArray<3, UnstatedTicket> = [
             .init(rawValue: 1),
             .init(rawValue: 0x0102),
@@ -96,14 +124,32 @@ import Testing
     /// reference, travel one at a time: the collection checks the size, the stride and the
     /// absence of references itself, so it never copies a padding byte or a reference.
     @Test static func Misdeclared() throws {
-        let trailing: [TrailingPadding] = [.init(price: 0x0102, side: 3), .init(price: -1, side: 4)]
-        let trailingGolden: [UInt8] = [2, 2, 1, 0, 0, 0, 0, 0, 0, 3] + .init(repeating: 0xff, count: 8) + [4]
+        let trailing: [TrailingPadding] = [
+            .init(price: 0x0102, side: 3),
+            .init(price: -1, side: 4)
+        ]
+        let trailingGolden: [UInt8] = [2, 2, 1, 0, 0, 0, 0, 0, 0, 3] + .init(
+            repeating: 0xff,
+            count: 8
+        ) + [
+            4
+        ]
         #expect([UInt8].init(transferring: trailing) == trailingGolden)
         #expect(try [TrailingPadding].decode(trailingGolden) == trailing)
-        #expect(try ContiguousArray<TrailingPadding>.decode(trailingGolden) == ContiguousArray.init(trailing))
+        #expect(
+            try ContiguousArray<TrailingPadding>.decode(trailingGolden) == ContiguousArray.init(
+                trailing
+            )
+        )
 
-        let interior: [InteriorPadding] = [.init(side: 3, price: 0x0102), .init(side: 4, price: -1)]
-        let interiorGolden: [UInt8] = [2, 3, 2, 1, 0, 0, 0, 0, 0, 0, 4] + .init(repeating: 0xff, count: 8)
+        let interior: [InteriorPadding] = [
+            .init(side: 3, price: 0x0102),
+            .init(side: 4, price: -1)
+        ]
+        let interiorGolden: [UInt8] = [2, 3, 2, 1, 0, 0, 0, 0, 0, 0, 4] + .init(
+            repeating: 0xff,
+            count: 8
+        )
         #expect([UInt8].init(transferring: interior) == interiorGolden)
         #expect(try [InteriorPadding].decode(interiorGolden) == interior)
 
@@ -116,7 +162,11 @@ import Testing
         let inline: InlineArray<2, Handle> = [.init(0x0102), .init(7)]
         #expect([UInt8].init(transferring: inline) == Array.init(handlesGolden.dropFirst()))
         #expect(
-            [UInt8].init(transferring: try InlineArray<2, Handle>.decode(Array.init(handlesGolden.dropFirst()))) == Array.init(
+            [UInt8].init(
+                transferring: try InlineArray<2, Handle>.decode(
+                    Array.init(handlesGolden.dropFirst())
+                )
+            ) == Array.init(
                 handlesGolden.dropFirst()
             )
         )
@@ -145,7 +195,13 @@ import Testing
 
     /// Every NaN payload, signaling ones included, survives the copy.
     @Test static func FloatingPointBitPatterns() throws {
-        let doubles: [Double] = [.nan, .signalingNaN, -0.0, .infinity, .init(bitPattern: 0x7ff0_0000_0000_0001)]
+        let doubles: [Double] = [
+            .nan,
+            .signalingNaN,
+            -0.0,
+            .infinity,
+            .init(bitPattern: 0x7ff0_0000_0000_0001)
+        ]
         let doubleBytes: [UInt8] = [5] + doubles.flatMap { Self.littleEndian($0.bitPattern) }
         #expect([UInt8].init(transferring: doubles) == doubleBytes)
         #expect(try [Double].decode(doubleBytes).map(\.bitPattern) == doubles.map(\.bitPattern))
@@ -161,9 +217,16 @@ import Testing
     /// Every prefix of a frame, and a hostile count, is refused by each kind of array with the
     /// error a read of one element at a time reports: the same kind, count and position.
     @Test(arguments: 0 ... 25) static func Truncated(_ length: Int) {
-        let golden: [UInt8] = [3] + [1, 0x0102, .max].flatMap { Self.littleEndian($0 as UInt64) }
+        let golden: [UInt8] = [3] + [1, 0x0102, .max].flatMap {
+            Self.littleEndian($0 as UInt64)
+        }
         let prefix: [UInt8] = .init(golden.prefix(length))
-        #expect(Self.refusal(prefix, as: [Ticket].self) == Self.refusal(prefix, as: [UnstatedTicket].self))
+        #expect(
+            Self.refusal(prefix, as: [Ticket].self) == Self.refusal(
+                prefix,
+                as: [UnstatedTicket].self
+            )
+        )
         #expect(
             Self.refusal(prefix, as: ContiguousArray<Ticket>.self)
                 == Self.refusal(prefix, as: ContiguousArray<UnstatedTicket>.self)
@@ -197,8 +260,18 @@ import Testing
     /// An enumeration with an integer raw value, and `Bool`, are not stored as every byte
     /// they could read, so an array of them refuses a byte of no case where it stands.
     @Test static func EnumerationsRefuseEachElement() {
-        #expect(Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .init(kind: .invalidDiscriminant(5), remaining: 0))
-        #expect(Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(kind: .invalidDiscriminant(2), remaining: 2))
+        #expect(
+            Self.refusal([3, 0x01, 0xff, 0x05], as: [Side].self) == .init(
+                kind: .invalidDiscriminant(5),
+                remaining: 0
+            )
+        )
+        #expect(
+            Self.refusal([3, 2, 0, 1], as: [Bool].self) == .init(
+                kind: .invalidDiscriminant(2),
+                remaining: 2
+            )
+        )
     }
 
     /// Arrays of `Bool` and of an enumeration that states its discriminants write the bytes of a
@@ -208,7 +281,9 @@ import Testing
         let golden: [UInt8] = Self.uleb128(count) + raw
         let marks: [Mark] = raw.map { Mark.init(rawValue: $0)! }
         #expect([UInt8].init(transferring: marks) == golden)
-        #expect([UInt8].init(transferring: raw.map { UnstatedMark.init(rawValue: $0)! }) == golden)
+        #expect(
+            [UInt8].init(transferring: raw.map { UnstatedMark.init(rawValue: $0)! }) == golden
+        )
         #expect(try [Mark].decode(golden) == marks)
         #expect(try ContiguousArray<Mark>.decode(golden) == ContiguousArray.init(marks))
         #expect(try ArraySlice<Mark>.decode(golden) == marks[...])
@@ -221,7 +296,14 @@ import Testing
 
         let inline: InlineArray<4, Mark> = [.at, .none, .near, .at]
         #expect([UInt8].init(transferring: inline) == [2, 0, 1, 2])
-        #expect([UInt8].init(transferring: try InlineArray<4, Mark>.decode([2, 0, 1, 2])) == [2, 0, 1, 2])
+        #expect(
+            [UInt8].init(transferring: try InlineArray<4, Mark>.decode([2, 0, 1, 2])) == [
+                2,
+                0,
+                1,
+                2
+            ]
+        )
     }
 
     /// A byte of no case, wherever it stands, and every prefix of a frame, are refused by each
@@ -233,7 +315,12 @@ import Testing
             bytes[1 + position] = bad
             for length: Int in 0 ... bytes.count {
                 let prefix: [UInt8] = .init(bytes.prefix(length))
-                #expect(Self.refusal(prefix, as: [Mark].self) == Self.refusal(prefix, as: [UnstatedMark].self))
+                #expect(
+                    Self.refusal(prefix, as: [Mark].self) == Self.refusal(
+                        prefix,
+                        as: [UnstatedMark].self
+                    )
+                )
                 #expect(
                     Self.refusal(prefix, as: ContiguousArray<Mark>.self)
                         == Self.refusal(prefix, as: ContiguousArray<UnstatedMark>.self)
@@ -242,7 +329,12 @@ import Testing
                     Self.refusal(prefix, as: ArraySlice<Mark>.self)
                         == Self.refusal(prefix, as: ArraySlice<UnstatedMark>.self)
                 )
-                #expect(Self.refusal(prefix, as: Batch<Mark>.self) == Self.refusal(prefix, as: Batch<UnstatedMark>.self))
+                #expect(
+                    Self.refusal(prefix, as: Batch<Mark>.self) == Self.refusal(
+                        prefix,
+                        as: Batch<UnstatedMark>.self
+                    )
+                )
                 let inline: [UInt8] = .init(bytes.dropFirst().prefix(length))
                 #expect(
                     Self.refusal(inline, as: InlineArray<5, Mark>.self)
@@ -260,7 +352,12 @@ import Testing
             bytes[1 + position] = bad
             for length: Int in 0 ... bytes.count {
                 let prefix: [UInt8] = .init(bytes.prefix(length))
-                #expect(Self.refusal(prefix, as: [Bool].self) == Self.refusal(prefix, as: [UnstatedFlag].self))
+                #expect(
+                    Self.refusal(prefix, as: [Bool].self) == Self.refusal(
+                        prefix,
+                        as: [UnstatedFlag].self
+                    )
+                )
                 #expect(
                     Self.refusal(prefix, as: ContiguousArray<Bool>.self)
                         == Self.refusal(prefix, as: ContiguousArray<UnstatedFlag>.self)
@@ -269,14 +366,24 @@ import Testing
                     Self.refusal(prefix, as: ArraySlice<Bool>.self)
                         == Self.refusal(prefix, as: ArraySlice<UnstatedFlag>.self)
                 )
-                #expect(Self.refusal(prefix, as: Batch<Bool>.self) == Self.refusal(prefix, as: Batch<UnstatedFlag>.self))
+                #expect(
+                    Self.refusal(prefix, as: Batch<Bool>.self) == Self.refusal(
+                        prefix,
+                        as: Batch<UnstatedFlag>.self
+                    )
+                )
                 let inline: [UInt8] = .init(bytes.dropFirst().prefix(length))
                 #expect(
                     Self.refusal(inline, as: InlineArray<5, Bool>.self)
                         == Self.refusal(inline, as: InlineArray<5, UnstatedFlag>.self)
                 )
             }
-            #expect(Self.refusal(bytes, as: [Bool].self) == .init(kind: .invalidDiscriminant(.init(bad)), remaining: 4 - position))
+            #expect(
+                Self.refusal(bytes, as: [Bool].self) == .init(
+                    kind: .invalidDiscriminant(.init(bad)),
+                    remaining: 4 - position
+                )
+            )
         }
     }
 
@@ -299,7 +406,14 @@ import Testing
         #expect(try ContiguousArray<Tally>.decode(bytes) == ContiguousArray.init(tallies))
         #expect(try ArraySlice<Tally>.decode(bytes) == tallies[...])
         #expect(try Batch<Tally>.decode(bytes) == Batch.init(elements: tallies))
-        #expect([UInt8].init(transferring: try InlineArray<4, Tally>.decode([2, 0, 1, 2])) == [2, 0, 1, 2])
+        #expect(
+            [UInt8].init(transferring: try InlineArray<4, Tally>.decode([2, 0, 1, 2])) == [
+                2,
+                0,
+                1,
+                2
+            ]
+        )
         #expect(Tally.reads.load(ordering: .relaxed) == reads)
         #expect(Tally.writes.load(ordering: .relaxed) == writes)
 
@@ -333,11 +447,26 @@ import Testing
         let flags: Batch<Bool> = [true, false, true]
         #expect([UInt8].init(transferring: flags) == [3, 1, 0, 1])
         #expect(try Batch<Bool>.decode([3, 1, 0, 1]) == flags)
-        #expect(Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .init(kind: .invalidDiscriminant(2), remaining: 1))
+        #expect(
+            Self.refusal([3, 1, 2, 1], as: Batch<Bool>.self) == .init(
+                kind: .invalidDiscriminant(2),
+                remaining: 1
+            )
+        )
 
         for bytes: [UInt8] in [[3, 0, 1, 2], [3, 0, 3, 2], [3, 0, 1], [3, 0xff], [2], []] {
-            #expect(Self.refusal(bytes, as: Batch<Mark>.self) == Self.refusal(bytes, as: [UnstatedMark].self))
-            #expect(Self.refusal(bytes, as: Batch<Ticket>.self) == Self.refusal(bytes, as: [UnstatedTicket].self))
+            #expect(
+                Self.refusal(bytes, as: Batch<Mark>.self) == Self.refusal(
+                    bytes,
+                    as: [UnstatedMark].self
+                )
+            )
+            #expect(
+                Self.refusal(bytes, as: Batch<Ticket>.self) == Self.refusal(
+                    bytes,
+                    as: [UnstatedTicket].self
+                )
+            )
         }
     }
 
@@ -356,10 +485,17 @@ import Testing
                 == Self.refusal(prefix, as: InlineArray<3, UnstatedPair>.self)
         )
         let counted: [UInt8] = [3] + prefix
-        #expect(Self.refusal(counted, as: Batch<Pair>.self) == Self.refusal(counted, as: Batch<UnstatedPair>.self))
+        #expect(
+            Self.refusal(counted, as: Batch<Pair>.self) == Self.refusal(
+                counted,
+                as: Batch<UnstatedPair>.self
+            )
+        )
         if  length == golden.count {
             let read: InlineArray<3, Pair> = try .decode(golden)
-            #expect(read[0] == .init(low: 0x0102_0304, high: 5) && read[2] == .init(low: 7, high: 8))
+            #expect(
+                read[0] == .init(low: 0x0102_0304, high: 5) && read[2] == .init(low: 7, high: 8)
+            )
         }
     }
 
@@ -369,7 +505,12 @@ import Testing
         let marks: [WideMark] = [.init(1), .init(0)]
         #expect([UInt8].init(transferring: marks) == [2, 1, 0])
         #expect(try [WideMark].decode([2, 1, 0]) == marks)
-        #expect(Self.refusal([2, 1, 2], as: [WideMark].self) == .init(kind: .invalidDiscriminant(2), remaining: 0))
+        #expect(
+            Self.refusal([2, 1, 2], as: [WideMark].self) == .init(
+                kind: .invalidDiscriminant(2),
+                remaining: 0
+            )
+        )
     }
 }
 extension Bitwise {
@@ -381,7 +522,10 @@ extension Bitwise {
 
     /// The error decoding `bytes` reports, with the number of bytes the reader had left when it
     /// did, or nil when they decode.
-    static func refusal<Value>(_ bytes: [UInt8], as _: Value.Type) -> Refusal? where Value: Transferable {
+    static func refusal<Value>(
+        _ bytes: [UInt8],
+        as _: Value.Type
+    ) -> Refusal? where Value: Transferable {
         var input: TransferReader = .init(bytes.span.bytes)
         do {
             _ = try Value.init(transferring: &input)

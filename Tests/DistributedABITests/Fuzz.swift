@@ -165,7 +165,9 @@ extension Fuzz {
             let valid: [UInt8] = Value.shape.canonical(written) else {
                 let bytes: String = Self.hex(written)
                 Issue.record(
-                    "\(run.failure(i)): \(Self.describe(value)) wrote \(bytes), not of its shape"
+                    """
+                    \(run.failure(i)): \(Self.describe(value)) wrote \(bytes), not of its shape
+                    """
                 )
                 return
             }
